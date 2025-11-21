@@ -130,20 +130,12 @@ impl Default for EditorState {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-	println!("🎨 Starting Multi-Window Dioxus Editor...\n");
+	println!("🎨 Starting Single-Window Dioxus Editor...\n");
 
 	let config = EditorConfig::default();
-	// Автоматично визначаємо розмір екрану
 	let (screen_width, screen_height) = ScreenLayout::detect_screen_size(config.screen_size_fallback);
-	let layout = ScreenLayout::from_screen_size(screen_width, screen_height, &config);
-	let layout = Arc::new(layout);
 
-	// println!("📐 Screen layout: {}x{}", layout.screen_width, layout.screen_height);
-
-	// // Запускаємо Bevy game як окремий процес
-	// spawn_bevy_game(&layout);
-
-	// // Глобальний стан редактора
+	// Глобальний стан редактора
 	let editor_state = Arc::new(RwLock::new(EditorState::default()));
 
 	// let _query_all_req = BrpRequest {
@@ -276,29 +268,21 @@ async fn main() -> Result<()> {
 	// // 	}
 	// // });
 
-	// // Запускаємо Dioxus UI (3 панелі)
-	// // let cfg = dioxus::desktop::Config::new();
-	// // Чекаємо трохи, щоб Bevy встигла запуститись
-	// std::thread::sleep(std::time::Duration::from_secs(2));
+	// Створюємо одне вікно для всього UI
+	println!("🚀 Starting single-window UI...");
 
-	// // Запускаємо Dioxus UI
-	// println!("🚀 Starting Dioxus UI windows...");
-
-	// // Головне вікно (Top Bar)
-	let top_bar_cfg = dioxus::desktop::Config::new().with_window(
+	let window_cfg = dioxus::desktop::Config::new().with_window(
 		dioxus::desktop::WindowBuilder::new()
-			.with_title(config.top_bar.title.clone())
-			.with_inner_size(dioxus::desktop::LogicalSize::new(layout.top_bar_width, layout.top_bar_height))
-			.with_position(dioxus::desktop::LogicalPosition::new(layout.top_bar_x, layout.top_bar_y))
+			.with_title(format!("{} - Editor", config.top_bar.title))
+			.with_inner_size(dioxus::desktop::LogicalSize::new(screen_width, screen_height))
 			.with_decorations(true)
-			.with_resizable(false),
+			.with_resizable(true),
 	);
 
-	// Запускаємо головне вікно
+	// Запускаємо єдине вікно
 	dioxus::LaunchBuilder::desktop()
-		.with_cfg(top_bar_cfg)
+		.with_cfg(window_cfg)
 		.with_context(editor_state)
-		.with_context(layout.clone())
 		.launch(App);
 
 	Ok(())
@@ -307,60 +291,83 @@ async fn main() -> Result<()> {
 #[component]
 fn App() -> Element {
 	let state = use_context::<Arc<RwLock<EditorState>>>();
-	let layout = use_context::<Arc<ScreenLayout>>();
 
-	// Створюємо додаткові вікна через use_effect (після першого рендеру)
+	// Запускаємо Bevy game після ініціалізації UI
 	use_effect(move || {
-		println!("🪟 Creating additional windows...");
+		std::thread::sleep(std::time::Duration::from_millis(500)); // Чекаємо поки UI рендериться
+
+		// Розміри панелей (повинні співпадати зі стилями в rsx!)
+		let top_bar_height = 50;
+		let left_panel_width = 300;
+		let right_panel_width = 350;
+
+		// Отримуємо розмір вікна
 		let window = dioxus::desktop::window();
-		let state_clone = state.clone();
-		let config = state_clone.read().unwrap().config.clone();
-		let layout_clone = layout.clone();
+		let window_size = window.inner_size();
 
-		// Left Panel (Hierarchy)
-		let left_cfg = dioxus::desktop::Config::new().with_window(
-			dioxus::desktop::WindowBuilder::new()
-				.with_title(config.left_panel.title.clone())
-				.with_inner_size(dioxus::desktop::LogicalSize::new(
-					layout_clone.left_panel_width,
-					layout_clone.left_panel_height,
-				))
-				.with_position(dioxus::desktop::LogicalPosition::new(
-					layout_clone.left_panel_x,
-					layout_clone.left_panel_y,
-				))
-				.with_decorations(true)
-				.with_resizable(true),
+		// Припускаємо що вікно знаходиться на початку екрану (0, 0)
+		// Якщо вікно має декорації, потрібно врахувати title bar
+		let window_x_offset = 0; // Початок вікна на екрані
+		let window_y_offset = 0;
+		let title_bar_height_system = 35; // Висота title bar системи (якщо є)
+
+		// Розраховуємо абсолютні екранні координати viewport
+		let viewport_x = window_x_offset + left_panel_width;
+		let viewport_y = window_y_offset + title_bar_height_system + top_bar_height;
+		let viewport_width = window_size.width.saturating_sub(left_panel_width + right_panel_width);
+		let viewport_height = window_size.height.saturating_sub(top_bar_height);
+
+		println!("📐 Viewport calculated:");
+		println!("  Window size: {}x{}", window_size.width, window_size.height);
+		println!(
+			"  Viewport screen position: {}x{} at ({}, {})",
+			viewport_width, viewport_height, viewport_x, viewport_y
 		);
-		let mut left_vdom = VirtualDom::new(LeftPanel);
-		left_vdom.insert_any_root_context(Box::new(state_clone.clone()));
-		window.new_window(left_vdom, left_cfg);
 
-		// Right Panel (Inspector)
-		let right_cfg = dioxus::desktop::Config::new().with_window(
-			dioxus::desktop::WindowBuilder::new()
-				.with_title(config.right_panel.title.clone())
-				.with_inner_size(dioxus::desktop::LogicalSize::new(
-					layout_clone.right_panel_width,
-					layout_clone.right_panel_height,
-				))
-				.with_position(dioxus::desktop::LogicalPosition::new(
-					layout_clone.right_panel_x,
-					layout_clone.right_panel_y,
-				))
-				.with_decorations(true)
-				.with_resizable(true),
-		);
-		let mut right_vdom = VirtualDom::new(RightPanel);
-		right_vdom.insert_any_root_context(Box::new(state_clone));
-		window.new_window(right_vdom, right_cfg);
-
-		println!("✅ Additional windows created!");
+		spawn_bevy_game_borderless(viewport_x as i32, viewport_y as i32, viewport_width, viewport_height);
 	});
 
 	rsx! {
 		style { {include_str!("../assets/editor.css")} }
-		TopBar {}
+
+		div {
+			class: "editor-container",
+			style: "display: flex; flex-direction: column; height: 100vh; width: 100vw;",
+
+			// Top Bar
+			div {
+				class: "top-bar",
+				style: "height: 50px; background: #2d2d2d; border-bottom: 1px solid #1e1e1e;",
+				TopBar {}
+			}
+
+			// Main content area
+			div {
+				class: "main-content",
+				style: "display: flex; flex: 1; overflow: hidden;",
+
+				// Left Panel (Hierarchy)
+				div {
+					class: "left-panel",
+					style: "width: 300px; background: #252526; border-right: 1px solid #1e1e1e; overflow-y: auto;",
+					LeftPanel {}
+				}
+
+				// Center Viewport (placeholder for Bevy game)
+				div {
+					class: "viewport",
+					style: "flex: 1; background: #1e1e1e; display: flex; align-items: center; justify-content: center; color: #888;",
+					"🎮 Game Viewport (Bevy window will overlay here)"
+				}
+
+				// Right Panel (Inspector)
+				div {
+					class: "right-panel",
+					style: "width: 350px; background: #252526; border-left: 1px solid #1e1e1e; overflow-y: auto;",
+					RightPanel {}
+				}
+			}
+		}
 	}
 }
 
@@ -535,6 +542,38 @@ fn spawn_bevy_game(layout: &ScreenLayout) {
 					"  Viewport: {}x{} at ({}, {})",
 					viewport_width, viewport_height, viewport_x, viewport_y
 				);
+				match child.wait() {
+					Ok(status) => println!("Game exited with status: {}", status),
+					Err(e) => eprintln!("Error waiting for game: {}", e),
+				}
+			}
+			Err(e) => eprintln!("❌ Failed to spawn game: {}", e),
+		}
+	});
+}
+
+fn spawn_bevy_game_borderless(x: i32, y: i32, width: u32, height: u32) {
+	println!("🚀 Spawning borderless Bevy game window...");
+
+	let game_path = "../bevy_demo_game/target/debug/bevy_demo_game";
+
+	std::thread::spawn(move || {
+		match Command::new(game_path)
+			.arg("--editor-mode")
+			.arg("--no-decorations")
+			.arg("--window-x")
+			.arg(x.to_string())
+			.arg("--window-y")
+			.arg(y.to_string())
+			.arg("--window-width")
+			.arg(width.to_string())
+			.arg("--window-height")
+			.arg(height.to_string())
+			.spawn()
+		{
+			Ok(mut child) => {
+				println!("✓ Borderless game window started with PID: {:?}", child.id());
+				println!("  Viewport: {}x{} at ({}, {})", width, height, x, y);
 				match child.wait() {
 					Ok(status) => println!("Game exited with status: {}", status),
 					Err(e) => eprintln!("Error waiting for game: {}", e),
