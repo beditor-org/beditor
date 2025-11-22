@@ -7,105 +7,48 @@ use bevy::remote::http::{DEFAULT_ADDR, DEFAULT_PORT};
 use bevy::remote::BrpRequest;
 use serde_json::json;
 use top_bar::TopBar;
-// Multi-window Dioxus Desktop Editor
+
 use anyhow::Result;
+use dioxus::desktop::tao::dpi::PhysicalPosition;
 use dioxus::prelude::*;
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::process::Command;
 use std::sync::{Arc, RwLock};
 
 use config::EditorConfig;
 
-#[derive(Clone, Debug)]
-struct ScreenLayout {
-	screen_width: u32,
-	screen_height: u32,
-	top_bar_x: i32,
-	top_bar_y: i32,
-	top_bar_width: u32,
-	top_bar_height: u32,
-	left_panel_x: i32,
-	left_panel_y: i32,
-	left_panel_width: u32,
-	left_panel_height: u32,
-	right_panel_x: i32,
-	right_panel_y: i32,
-	right_panel_width: u32,
-	right_panel_height: u32,
-	viewport_x: i32,
-	viewport_y: i32,
-	viewport_width: u32,
-	viewport_height: u32,
-}
+fn get_window_position(window: &dioxus::desktop::tao::window::Window) -> Option<(i32, i32)> {
+	#[cfg(target_os = "linux")]
+	{
+		use std::ptr;
+		use x11::xlib;
 
-impl ScreenLayout {
-	fn from_screen_size(width: u32, height: u32, config: &EditorConfig) -> Self {
-		let top_bar_height: u32 = 100;
-		let left_panel_width: u32 = 400;
-		let right_panel_width: u32 = 385;
-		let margin: u32 = 5;
+		unsafe {
+			let handle = window.window_handle().ok()?;
+			let raw_handle = handle.as_raw();
 
-		// Враховуємо декорації вікна (border + title bar)
-		let window_decoration_height = config.window_title_height + config.window_border_size * 2;
-		let window_decoration_width = config.window_border_size * 2;
+			// First try X11
+			if let RawWindowHandle::Xlib(xlib_handle) = raw_handle {
+				let display = xlib::XOpenDisplay(ptr::null());
+				if !display.is_null() {
+					let window_id = xlib_handle.window;
+					let mut x = 0;
+					let mut y = 0;
+					let mut child = 0;
+					let root = xlib::XDefaultRootWindow(display);
 
-		let top_bar_bottom: u32 = top_bar_height + window_decoration_height + margin;
-
-		let layout = Self {
-			screen_width: width,
-			screen_height: height,
-			top_bar_x: margin as i32,
-			top_bar_y: margin as i32,
-			top_bar_width: width.saturating_sub(margin * 2),
-			top_bar_height,
-			left_panel_x: margin as i32,
-			left_panel_y: (top_bar_bottom + margin) as i32,
-			left_panel_width,
-			left_panel_height: height.saturating_sub(top_bar_bottom + margin + window_decoration_height),
-			right_panel_x: (width.saturating_sub(right_panel_width + window_decoration_width + margin)) as i32,
-			right_panel_y: (top_bar_bottom + margin) as i32,
-			right_panel_width,
-			right_panel_height: height.saturating_sub(top_bar_bottom + margin + window_decoration_height),
-			viewport_x: (left_panel_width + window_decoration_width + margin * 2) as i32,
-			viewport_y: (top_bar_bottom + margin) as i32,
-			viewport_width: width.saturating_sub(left_panel_width + right_panel_width + window_decoration_width * 2 + margin * 4),
-			viewport_height: height.saturating_sub(top_bar_bottom + margin + window_decoration_height),
-		};
-
-		println!("📐 Layout calculated:");
-		println!(
-			"  TopBar: {}x{} at ({}, {})",
-			layout.top_bar_width, layout.top_bar_height, layout.top_bar_x, layout.top_bar_y
-		);
-		println!(
-			"  LeftPanel: {}x{} at ({}, {})",
-			layout.left_panel_width, layout.left_panel_height, layout.left_panel_x, layout.left_panel_y
-		);
-		println!(
-			"  RightPanel: {}x{} at ({}, {})",
-			layout.right_panel_width, layout.right_panel_height, layout.right_panel_x, layout.right_panel_y
-		);
-		println!(
-			"  Viewport: {}x{} at ({}, {})",
-			layout.viewport_width, layout.viewport_height, layout.viewport_x, layout.viewport_y
-		);
-
-		layout
+					xlib::XTranslateCoordinates(display, window_id, root, 0, 0, &mut x, &mut y, &mut child);
+					xlib::XCloseDisplay(display);
+					return Some((x, y));
+				}
+			}
+			window.outer_position().ok().map(|pos| (pos.x, pos.y))
+		}
 	}
 
-	fn detect_screen_size(fallback: (u32, u32)) -> (u32, u32) {
-		display_info::DisplayInfo::all()
-			.ok()
-			.and_then(|displays| {
-				displays
-					.iter()
-					.find(|d| d.is_primary)
-					.or_else(|| displays.first())
-					.map(|display| (display.width, display.height))
-			})
-			.unwrap_or_else(|| {
-				eprintln!("⚠️  Could not detect display, using fallback: {}x{}", fallback.0, fallback.1);
-				fallback
-			})
+	#[cfg(not(target_os = "linux"))]
+	{
+		window.outer_position().ok().map(|pos| (pos.x, pos.y))
 	}
 }
 
@@ -130,12 +73,8 @@ impl Default for EditorState {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-	println!("🎨 Starting Single-Window Dioxus Editor...\n");
-
 	let config = EditorConfig::default();
-	let (screen_width, screen_height) = ScreenLayout::detect_screen_size(config.screen_size_fallback);
 
-	// Глобальний стан редактора
 	let editor_state = Arc::new(RwLock::new(EditorState::default()));
 
 	// let _query_all_req = BrpRequest {
@@ -268,18 +207,12 @@ async fn main() -> Result<()> {
 	// // 	}
 	// // });
 
-	// Створюємо одне вікно для всього UI
-	println!("🚀 Starting single-window UI...");
+	let window = dioxus::desktop::WindowBuilder::new()
+		.with_title(format!("{}", config.top_bar.title))
+		.with_decorations(true)
+		.with_resizable(true);
+	let window_cfg = dioxus::desktop::Config::new().with_window(window);
 
-	let window_cfg = dioxus::desktop::Config::new().with_window(
-		dioxus::desktop::WindowBuilder::new()
-			.with_title(format!("{} - Editor", config.top_bar.title))
-			.with_inner_size(dioxus::desktop::LogicalSize::new(screen_width, screen_height))
-			.with_decorations(true)
-			.with_resizable(true),
-	);
-
-	// Запускаємо єдине вікно
 	dioxus::LaunchBuilder::desktop()
 		.with_cfg(window_cfg)
 		.with_context(editor_state)
@@ -292,39 +225,43 @@ async fn main() -> Result<()> {
 fn App() -> Element {
 	let state = use_context::<Arc<RwLock<EditorState>>>();
 
-	// Запускаємо Bevy game після ініціалізації UI
+	let mut game_spawned = use_signal(|| false);
+
 	use_effect(move || {
-		std::thread::sleep(std::time::Duration::from_millis(500)); // Чекаємо поки UI рендериться
+		if game_spawned() {
+			return;
+		}
 
-		// Розміри панелей (повинні співпадати зі стилями в rsx!)
-		let top_bar_height = 50;
-		let left_panel_width = 300;
-		let right_panel_width = 350;
+		spawn(async move {
+			// Minimum delay so that UI has time to render
+			tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
-		// Отримуємо розмір вікна
-		let window = dioxus::desktop::window();
-		let window_size = window.inner_size();
+			let window = &dioxus::desktop::window().window;
+			let size = window.inner_size();
 
-		// Припускаємо що вікно знаходиться на початку екрану (0, 0)
-		// Якщо вікно має декорації, потрібно врахувати title bar
-		let window_x_offset = 0; // Початок вікна на екрані
-		let window_y_offset = 0;
-		let title_bar_height_system = 35; // Висота title bar системи (якщо є)
+			let window_position = get_window_position(window.as_ref())
+				.map(|(x, y)| PhysicalPosition::new(x, y))
+				.unwrap_or_else(|| PhysicalPosition::new(0, 0));
 
-		// Розраховуємо абсолютні екранні координати viewport
-		let viewport_x = window_x_offset + left_panel_width;
-		let viewport_y = window_y_offset + title_bar_height_system + top_bar_height;
-		let viewport_width = window_size.width.saturating_sub(left_panel_width + right_panel_width);
-		let viewport_height = window_size.height.saturating_sub(top_bar_height);
+			println!("✓ Window position: ({}, {})", window_position.x, window_position.y);
+			println!("✓ Window size: {}x{}", size.width, size.height);
 
-		println!("📐 Viewport calculated:");
-		println!("  Window size: {}x{}", window_size.width, window_size.height);
-		println!(
-			"  Viewport screen position: {}x{} at ({}, {})",
-			viewport_width, viewport_height, viewport_x, viewport_y
-		);
+			let top_bar_height = 100;
+			let left_panel_width = 300;
+			let right_panel_width = 350;
 
-		spawn_bevy_game_borderless(viewport_x as i32, viewport_y as i32, viewport_width, viewport_height);
+			let viewport_x = window_position.x + left_panel_width as i32;
+			let viewport_y = window_position.y + top_bar_height as i32 + 2;
+			let viewport_width = size.width.saturating_sub(left_panel_width + right_panel_width);
+			let viewport_height = size.height.saturating_sub(top_bar_height + 35);
+			println!(
+				"  Viewport screen position: {}x{} at ({}, {})",
+				viewport_width, viewport_height, viewport_x, viewport_y
+			);
+
+			spawn_bevy_game_borderless(viewport_x as i32, viewport_y as i32, viewport_width, viewport_height);
+			game_spawned.set(true);
+		});
 	});
 
 	rsx! {
@@ -337,7 +274,7 @@ fn App() -> Element {
 			// Top Bar
 			div {
 				class: "top-bar",
-				style: "height: 50px; background: #2d2d2d; border-bottom: 1px solid #1e1e1e;",
+				style: "height: 100px; background: #2d2d2d; border-bottom: 1px solid #1e1e1e;",
 				TopBar {}
 			}
 
@@ -376,7 +313,7 @@ fn LeftPanel() -> Element {
 	let state = use_context::<Arc<RwLock<EditorState>>>();
 	let mut selected = use_signal(|| None::<String>);
 
-	// Синхронізувати з глобальним станом
+	// Synchronize with global state
 	let state_clone = state.clone();
 	use_effect(move || {
 		if let Some(sel) = selected() {
@@ -514,48 +451,10 @@ fn Property(label: String, value: String) -> Element {
 	}
 }
 
-fn spawn_bevy_game(layout: &ScreenLayout) {
-	println!("🚀 Spawning Bevy game process...");
-
-	let game_path = "../bevy_demo_game/target/debug/bevy_demo_game";
-	let viewport_x = layout.viewport_x;
-	let viewport_y = layout.viewport_y;
-	let viewport_width = layout.viewport_width;
-	let viewport_height = layout.viewport_height;
-
-	std::thread::spawn(move || {
-		match Command::new(game_path)
-			.arg("--editor-mode")
-			.arg("--window-x")
-			.arg(viewport_x.to_string())
-			.arg("--window-y")
-			.arg(viewport_y.to_string())
-			.arg("--window-width")
-			.arg(viewport_width.to_string())
-			.arg("--window-height")
-			.arg(viewport_height.to_string())
-			.spawn()
-		{
-			Ok(mut child) => {
-				println!("✓ Game process started with PID: {:?}", child.id());
-				println!(
-					"  Viewport: {}x{} at ({}, {})",
-					viewport_width, viewport_height, viewport_x, viewport_y
-				);
-				match child.wait() {
-					Ok(status) => println!("Game exited with status: {}", status),
-					Err(e) => eprintln!("Error waiting for game: {}", e),
-				}
-			}
-			Err(e) => eprintln!("❌ Failed to spawn game: {}", e),
-		}
-	});
-}
-
 fn spawn_bevy_game_borderless(x: i32, y: i32, width: u32, height: u32) {
 	println!("🚀 Spawning borderless Bevy game window...");
 
-	let game_path = "../bevy_demo_game/target/debug/bevy_demo_game";
+	let game_path = "../bevy_demo_game/target/release/bevy_demo_game";
 
 	std::thread::spawn(move || {
 		match Command::new(game_path)

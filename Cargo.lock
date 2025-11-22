@@ -359,9 +359,11 @@ dependencies = [
  "bevy",
  "dioxus",
  "display-info",
+ "raw-window-handle 0.6.2",
  "reqwest",
  "serde_json",
  "tokio",
+ "x11",
 ]
 
 [[package]]
