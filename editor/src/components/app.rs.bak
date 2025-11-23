@@ -14,13 +14,12 @@ pub fn App() -> Element {
 
 	let mut game_spawned = use_signal(|| false);
 
-	let state_for_effect = state.clone();
 	use_effect(move || {
 		if game_spawned() {
 			return;
 		}
 
-		let state_for_spawn = state_for_effect.clone();
+		let state_for_spawn = state.clone();
 		spawn(async move {
 			// Minimum delay so that UI has time to render
 			tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
@@ -59,13 +58,12 @@ pub fn App() -> Element {
 		});
 	});
 
-	// Get layout from state (read it directly, no memo needed)
-	let state_for_layout = state.clone();
-	let layout = state_for_layout.read().ok().map(|s| s.layout.clone()).unwrap_or_default();
+	// Get layout from state
+	let layout = use_memo(move || state.read().ok().map(|s| s.layout.clone()).unwrap_or_default());
 
 	rsx! {
-			style { {include_str!("../../assets/editor.css")} }
+		style { {include_str!("../../assets/editor.css")} }
 
-			EditorLayout { layout }
+		EditorLayout { layout: layout() }
 	}
 }

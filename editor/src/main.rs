@@ -1,6 +1,7 @@
 mod components;
 mod config;
 mod editor;
+mod layout;
 mod tool;
 mod windows_manager;
 
@@ -19,6 +20,7 @@ struct EditorState {
 	// pub entities: Vec<EntityInfo>,
 	pub game_connected: bool,
 	pub config: EditorConfig,
+	pub layout: layout::LayoutConfig,
 	pub panels: Vec<components::PanelState>,
 	// pub game_process: Option<Arc<Mutex<GameProcess>>>,
 }
@@ -27,6 +29,7 @@ impl Default for EditorState {
 	fn default() -> Self {
 		Self {
 			selected_entity: None,
+			layout: layout::LayoutConfig::default(),
 			panels: Vec::new(),
 			// entities: vec![],
 			game_connected: false,
@@ -83,7 +86,7 @@ async fn main() -> Result<()> {
 	dioxus::LaunchBuilder::desktop()
 		.with_cfg(window_cfg)
 		.with_context(Arc::new(RwLock::new(editor_state)))
-		.launch(App::<EditorState>);
+		.launch(App);
 
 	Ok(())
 }

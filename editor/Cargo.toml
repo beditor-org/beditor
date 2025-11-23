@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 # UI
 dioxus.workspace = true
+dioxus-free-icons = { version = "0.8", features = ["font-awesome-solid"] }
 raw-window-handle.workspace = true
 
 # Async
