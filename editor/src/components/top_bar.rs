@@ -3,7 +3,7 @@ use dioxus::{core::Element, prelude::*};
 #[component]
 pub fn TopBar() -> Element {
 	rsx! {
-		style { {include_str!("../assets/editor.css")} }
+		style { {include_str!("../../assets/editor.css")} }
 		div {
 			class: "top-bar",
 			button { class: "toolbar-button", "File" }

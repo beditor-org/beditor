@@ -96,3 +96,40 @@ pub fn spawn_game_process(
 		}
 	});
 }
+
+pub fn get_window_position(window: &dioxus::desktop::tao::window::Window) -> Option<(i32, i32)> {
+	#[cfg(target_os = "linux")]
+	{
+		use std::ptr;
+		use x11::xlib;
+
+		unsafe {
+			use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+			let handle = window.window_handle().ok()?;
+			let raw_handle = handle.as_raw();
+
+			// First try X11
+			if let RawWindowHandle::Xlib(xlib_handle) = raw_handle {
+				let display = xlib::XOpenDisplay(ptr::null());
+				if !display.is_null() {
+					let window_id = xlib_handle.window;
+					let mut x = 0;
+					let mut y = 0;
+					let mut child = 0;
+					let root = xlib::XDefaultRootWindow(display);
+
+					xlib::XTranslateCoordinates(display, window_id, root, 0, 0, &mut x, &mut y, &mut child);
+					xlib::XCloseDisplay(display);
+					return Some((x, y));
+				}
+			}
+			window.outer_position().ok().map(|pos| (pos.x, pos.y))
+		}
+	}
+
+	#[cfg(not(target_os = "linux"))]
+	{
+		window.outer_position().ok().map(|pos| (pos.x, pos.y))
+	}
+}
