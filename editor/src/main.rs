@@ -50,6 +50,14 @@ async fn main() -> Result<()> {
 				..Default::default()
 			},
 			PanelState {
+				alignment: PanelAligment::Top,
+				..Default::default()
+			},
+			PanelState {
+				alignment: PanelAligment::Bottom,
+				..Default::default()
+			},
+			PanelState {
 				alignment: PanelAligment::Bottom,
 				..Default::default()
 			},
@@ -71,6 +79,14 @@ async fn main() -> Result<()> {
 			},
 			PanelState {
 				alignment: PanelAligment::CenterBottom,
+				..Default::default()
+			},
+			PanelState {
+				alignment: PanelAligment::CenterTop,
+				..Default::default()
+			},
+			PanelState {
+				alignment: PanelAligment::Left,
 				..Default::default()
 			},
 		],

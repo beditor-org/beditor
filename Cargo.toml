@@ -32,3 +32,15 @@ x11 = { version = "2.21", features = ["xlib"] }
 
 # IPC
 crossbeam-channel = "0.5"
+
+[profile]
+
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"

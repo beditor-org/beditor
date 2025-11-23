@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::tool::Tool;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum PanelAligment {
 	#[default]
 	Left,
@@ -14,7 +14,7 @@ pub enum PanelAligment {
 	CenterBottom,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct PanelState {
 	pub alignment: PanelAligment,
 	pub tools: Vec<Tool>,

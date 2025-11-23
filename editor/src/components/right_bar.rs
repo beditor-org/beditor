@@ -15,7 +15,6 @@ pub fn RightPanel() -> Element {
 	// });
 
 	rsx! {
-		style { {include_str!("../../assets/editor.css")} }
 		div {
 			class: "panel right-panel",
 			h3 { class: "panel-title", "Inspector" }

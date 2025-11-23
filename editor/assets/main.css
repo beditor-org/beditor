@@ -1,0 +1,27 @@
+@import "tailwindcss";
+@source "../src/**/*.{rs,html,css}";
+
+html, body, #main {
+	height: 100%;
+}
+
+body {
+	margin: 0;
+	padding: 0;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+	background: #1e1e1e;
+	color: #cccccc;
+	overflow: hidden;
+}
+
+.panel {
+	@apply bg-gray-800 border border-gray-700;
+}
+
+.panel-header {
+	@apply bg-gray-900 px-3 py-2 text-sm font-medium text-gray-300 border-b border-gray-700;
+}
+
+.panel-content {
+	@apply p-3 overflow-auto;
+}

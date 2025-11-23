@@ -1,0 +1,6 @@
+[application]
+name = "beditor"
+default_platform = "desktop"
+
+[web.app]
+title = "Beditor"

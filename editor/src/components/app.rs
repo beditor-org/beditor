@@ -59,13 +59,10 @@ pub fn App() -> Element {
 		});
 	});
 
-	// Get layout from state (read it directly, no memo needed)
-	let state_for_layout = state.clone();
-	let layout = state_for_layout.read().ok().map(|s| s.layout.clone()).unwrap_or_default();
-
 	rsx! {
-			style { {include_str!("../../assets/editor.css")} }
-
-			EditorLayout { layout }
+		style { {include_str!("../../assets/tailwind.css")} }
+		EditorLayout {
+			panels: state.read().map(|s| s.panels.clone()).unwrap_or_default(),
+		}
 	}
 }

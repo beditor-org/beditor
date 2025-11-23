@@ -53,20 +53,16 @@ pub struct LayoutConfig {
 	pub panels: Vec<PanelConfig>,
 }
 
-impl Default for LayoutConfig {
-	fn default() -> Self {
-		Self {
-			panels: vec![
-				PanelConfig::new("top-bar", PanelAlignment::Top).with_size(PanelSize::Fixed(40)),
-				PanelConfig::new("left-panel", PanelAlignment::Left).with_size(PanelSize::Fixed(300)),
-				PanelConfig::new("right-panel", PanelAlignment::Right).with_size(PanelSize::Fixed(350)),
-				PanelConfig::new("center-panel", PanelAlignment::Center),
-			],
+	impl Default for LayoutConfig {
+		fn default() -> Self {
+			Self {
+				panels: vec![
+					PanelConfig::new("top-bar", PanelAlignment::Top).with_size(PanelSize::Fixed(32)),
+					PanelConfig::new("viewport", PanelAlignment::Center),
+				],
+			}
 		}
-	}
-}
-
-impl LayoutConfig {
+	}impl LayoutConfig {
 	pub fn panels_by_alignment(&self, alignment: PanelAlignment) -> Vec<&PanelConfig> {
 		self.panels.iter().filter(|p| p.visible && p.alignment == alignment).collect()
 	}

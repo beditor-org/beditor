@@ -34,7 +34,6 @@ pub fn LeftPanel<S: 'static>() -> Element {
 						   // let game_connected = state.read().map(|s| s.game_connected).unwrap_or(false);
 
 	rsx! {
-		style { {include_str!("../../assets/editor.css")} }
 		div {
 			class: "panel left-panel",
 			h3 { class: "panel-title", "Hierarchy" }
