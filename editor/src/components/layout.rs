@@ -25,51 +25,33 @@ pub fn EditorLayout(panels: Vec<PanelState>) -> Element {
 	rsx! {
 		div {
 			class: "flex flex-col h-screen overflow-hidden gap-3",
-			div {
-				class: "flex flex-col gap-3",
-				LayoutArea {
-					panels: top_panels.clone(),
-				}
+			LayoutArea {
+				panels: top_panels.clone(),
 			}
 			div{
 				class: "flex flex-row grow-1 gap-3",
-				div {
-					class: "flex flex-col gap-3",
-					LayoutArea {
-						panels: left_panels.clone(),
-					}
+				LayoutArea {
+					panels: left_panels.clone(),
 				}
 				div {
 					class: "flex flex-col grow-1 gap-3",
-					div{
-						class: "flex flex-col gap-3",
-						LayoutArea {
-							panels: center_top_panels.clone(),
-						}
+					LayoutArea {
+						panels: center_top_panels.clone(),
 					}
 					div{
 						class: "grow-1 bg-red-100",
 						"center pannel"
 					}
-					div{
-						class: "flex flex-col gap-3",
-						LayoutArea {
-							panels: center_bottom_panels.clone(),
-						}
+					LayoutArea {
+						panels: center_bottom_panels.clone(),
 					}
 				}
-				div {
-					class: "flex flex-col gap-3",
-					LayoutArea {
-						panels: right_panels.clone(),
-					}
+				LayoutArea {
+					panels: right_panels.clone(),
 				}
 			}
-			div {
-				class: "flex flex-col gap-3",
-				LayoutArea {
-					panels: bottom_panels.clone(),
-				}
+			LayoutArea {
+				panels: bottom_panels.clone(),
 			}
 		}
 	}
