@@ -1,21 +1,61 @@
 mod config;
+mod editor;
 mod top_bar;
 mod windows_manager;
-
-use bevy::remote::builtin_methods::{BrpQuery, BrpQueryFilter, BrpQueryParams, ComponentSelector, BRP_QUERY_METHOD};
-use bevy::remote::http::{DEFAULT_ADDR, DEFAULT_PORT};
-use bevy::remote::BrpRequest;
-use serde_json::json;
 use top_bar::TopBar;
 
 use anyhow::Result;
+use bevy::remote::BrpRequest;
 use dioxus::desktop::tao::dpi::PhysicalPosition;
 use dioxus::prelude::*;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use std::process::Command;
-use std::sync::{Arc, RwLock};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use std::io::{BufRead, BufReader, Write};
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
 
 use config::EditorConfig;
+
+// Owned BRP response structures for deserialization
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct OwnedBrpResponse {
+	jsonrpc: String,
+	id: u64,
+	#[serde(flatten)]
+	payload: OwnedBrpPayload,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+enum OwnedBrpPayload {
+	Result { result: serde_json::Value },
+	Error { error: OwnedBrpError },
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct OwnedBrpError {
+	code: i32,
+	message: String,
+}
+
+// Simple entity info for UI display
+#[derive(Debug, Clone)]
+struct EntityInfo {
+	id: u64,
+	name: String,
+}
+
+// Request ID counter
+static REQUEST_ID_COUNTER: AtomicU64 = AtomicU64::new(1);
+
+// Game process handle
+#[derive(Debug)]
+struct GameProcess {
+	stdin: ChildStdin,
+	_child: Child,
+}
 
 fn get_window_position(window: &dioxus::desktop::tao::window::Window) -> Option<(i32, i32)> {
 	#[cfg(target_os = "linux")]
@@ -55,9 +95,10 @@ fn get_window_position(window: &dioxus::desktop::tao::window::Window) -> Option<
 #[derive(Clone, Debug)]
 struct EditorState {
 	pub selected_entity: Option<String>,
-	pub entities: Vec<String>,
-	pub brp_connected: bool,
+	pub entities: Vec<EntityInfo>,
+	pub game_connected: bool,
 	pub config: EditorConfig,
+	pub game_process: Option<Arc<Mutex<GameProcess>>>,
 }
 
 impl Default for EditorState {
@@ -65,8 +106,9 @@ impl Default for EditorState {
 		Self {
 			selected_entity: None,
 			entities: vec![],
-			brp_connected: false,
+			game_connected: false,
 			config: EditorConfig::default(),
+			game_process: None,
 		}
 	}
 }
@@ -76,136 +118,6 @@ async fn main() -> Result<()> {
 	let config = EditorConfig::default();
 
 	let editor_state = Arc::new(RwLock::new(EditorState::default()));
-
-	// let _query_all_req = BrpRequest {
-	// 	jsonrpc: String::from("2.0"),
-	// 	method: String::from(BRP_QUERY_METHOD),
-	// 	id: Some(serde_json::to_value(1)?),
-	// 	params: Some(
-	// 		serde_json::to_value(BrpQueryParams {
-	// 			data: BrpQuery {
-	// 				components: Vec::default(),
-	// 				option: ComponentSelector::All,
-	// 				has: Vec::default(),
-	// 			},
-	// 			strict: false,
-	// 			filter: BrpQueryFilter::default(),
-	// 		})
-	// 		.expect("Unable to convert query parameters to a valid JSON value"),
-	// 	),
-	// };
-	// println!("...1");
-
-	// let request_body = json!({
-	// 	"jsonrpc": "2.0",
-	// 	"id": 1,
-	// 	"method": "world.query",
-	// 	"params": {
-	// 		"data": {
-	// 			"components": [],
-	// 			"option": "all",
-	// 			"has": []
-	// 		},
-	// 		"filter": {
-	// 			"with": [],
-	// 			"without": []
-	// 		},
-	// 		"strict": false
-	// 	}
-	// });
-
-	// let client = reqwest::Client::new();
-	// println!("🔌 Connecting to Bevy game at {}:{}...", DEFAULT_ADDR, DEFAULT_PORT);
-	// let url = format!("http://{DEFAULT_ADDR}:{DEFAULT_PORT}/");
-
-	// match client.post(url.clone()).json(&request_body).send().await {
-	// 	Ok(res) => {
-	// 		match res.json::<serde_json::Value>().await {
-	// 			Ok(json) => {
-	// 				println!("✓ BRP connected! Parsing entities...");
-
-	// 				// Витягуємо імена ентіті з відповіді
-	// 				let mut entity_names = Vec::new();
-	// 				if let Some(result) = json.get("result").and_then(|r| r.as_array()) {
-	// 					for entity_data in result {
-	// 						if let Some(components) = entity_data.get("components") {
-	// 							if let Some(name_obj) = components.get("bevy_ecs::name::Name") {
-	// 								if let Some(name) = name_obj.as_str() {
-	// 									entity_names.push(name.to_string());
-	// 								}
-	// 							}
-	// 						}
-	// 					}
-	// 				}
-
-	// 				println!("📦 Found {} entities: {:?}", entity_names.len(), entity_names);
-
-	// 				// Оновлюємо стан редактора
-	// 				if let Ok(mut state) = editor_state.write() {
-	// 					state.entities = entity_names;
-	// 					state.brp_connected = true;
-	// 				}
-	// 			}
-	// 			Err(e) => eprintln!("❌ Failed to parse BRP response: {}", e),
-	// 		}
-	// 	}
-	// 	Err(e) => {
-	// 		eprintln!("❌ Failed to connect to Bevy: {}", e);
-	// 		if let Ok(mut state) = editor_state.write() {
-	// 			state.brp_connected = false;
-	// 		}
-	// 	}
-	// }
-
-	// println!("...2");
-	// // 		let get_transform_request = BrpRequest {
-	// // 			jsonrpc: String::from("2.0"),
-	// // 			method: String::from(BRP_QUERY_METHOD),
-	// // 			id: Some(serde_json::to_value(1)?),
-	// // 			params: Some(
-	// // 				serde_json::to_value(BrpQueryParams {
-	// // 					data: BrpQuery {
-	// // 						components: vec![type_name::<Transform>().to_string()],
-	// // 						..Default::default()
-	// // 					},
-	// // 					strict: false,
-	// // 					filter: BrpQueryFilter::default(),
-	// // 				})
-	// // 				.expect("Unable to convert query parameters to a valid JSON value"),
-	// // 			),
-	// // 		};
-	// // thread::spawn(move || {
-	// // 	loop {
-	// // 		match TcpStream::connect("127.0.0.1:5000") {
-	// // 			Ok(mut stream) => {
-	// // 				println!("✓ BRP connected to Bevy game!");
-	// // 				if let Ok(mut state) = brp_state.write() {
-	// // 					state.brp_connected = true;
-	// // 				}
-	// // 				// Запитуємо список ентіті
-	// // 				let _ = stream.write_all(b"entities\n");
-	// // 				let mut buf = vec![0u8; 4096];
-	// // 				if let Ok(n) = stream.read(&mut buf) {
-	// // 					let resp = String::from_utf8_lossy(&buf[..n]);
-	// // 					let entities: Vec<String> =
-	// // 						resp.lines().map(|l| l.trim().to_string()).filter(|l| !l.is_empty()).collect();
-	// // 					print!("📦 Received entities: {:?}\n", entities);
-	// // 					if let Ok(mut state) = brp_state.write() {
-	// // 						state.entities = entities;
-	// // 					}
-	// // 				}
-	// // 			}
-	// // 			Err(err) => {
-	// // 				if let Ok(mut state) = brp_state.write() {
-	// // 					eprint!("✗ BRP connection error: {}\n", err);
-	// // 					state.brp_connected = false;
-	// // 				}
-	// // 				thread::sleep(Duration::from_secs(1));
-	// // 			}
-	// // 		}
-	// // 		thread::sleep(Duration::from_secs(2));
-	// // 	}
-	// // });
 
 	let window = dioxus::desktop::WindowBuilder::new()
 		.with_title(format!("{}", config.top_bar.title))
@@ -232,6 +144,7 @@ fn App() -> Element {
 			return;
 		}
 
+		let state_for_spawn = state.clone();
 		spawn(async move {
 			// Minimum delay so that UI has time to render
 			tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
@@ -259,8 +172,14 @@ fn App() -> Element {
 				viewport_width, viewport_height, viewport_x, viewport_y
 			);
 
-			spawn_bevy_game_borderless(viewport_x as i32, viewport_y as i32, viewport_width, viewport_height);
-			game_spawned.set(true);
+			// spawn_bevy_game_borderless(
+			// 	viewport_x as i32,
+			// 	viewport_y as i32,
+			// 	viewport_width,
+			// 	viewport_height,
+			// 	state_for_spawn,
+			// );
+			// game_spawned.set(true);
 		});
 	});
 
@@ -312,6 +231,7 @@ fn App() -> Element {
 fn LeftPanel() -> Element {
 	let state = use_context::<Arc<RwLock<EditorState>>>();
 	let mut selected = use_signal(|| None::<String>);
+	let mut update_trigger = use_signal(|| 0u32);
 
 	// Synchronize with global state
 	let state_clone = state.clone();
@@ -323,8 +243,20 @@ fn LeftPanel() -> Element {
 		}
 	});
 
+	// Poll for state changes periodically (less frequently to reduce CPU usage)
+	use_effect(move || {
+		spawn(async move {
+			loop {
+				tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+				update_trigger.set(update_trigger() + 1);
+			}
+		});
+	});
+
+	// Read state reactively
+	let _ = update_trigger(); // Subscribe to updates
 	let entities = state.read().map(|s| s.entities.clone()).unwrap_or_default();
-	let brp_connected = state.read().map(|s| s.brp_connected).unwrap_or(false);
+	let game_connected = state.read().map(|s| s.game_connected).unwrap_or(false);
 
 	rsx! {
 		style { {include_str!("../assets/editor.css")} }
@@ -332,10 +264,10 @@ fn LeftPanel() -> Element {
 			class: "panel left-panel",
 			h3 { class: "panel-title", "Hierarchy" }
 
-			if !brp_connected {
+			if !game_connected {
 				div {
 					style: "padding: 20px; color: #888;",
-					"⏳ Connecting to Bevy..."
+					"⏳ Connecting to Game..."
 				}
 			} else if entities.is_empty() {
 				div {
@@ -346,11 +278,11 @@ fn LeftPanel() -> Element {
 				div { class: "tree-view",
 					for entity in entities.iter() {
 						TreeItem {
-							name: entity.clone(),
-							selected: selected() == Some(entity.clone()),
+							name: entity.name.clone(),
+							selected: selected() == Some(entity.name.clone()),
 							onclick: {
-								let entity = entity.clone();
-								move |_| selected.set(Some(entity.clone()))
+								let entity_name = entity.name.clone();
+								move |_| selected.set(Some(entity_name.clone()))
 							}
 						}
 					}
@@ -451,34 +383,65 @@ fn Property(label: String, value: String) -> Element {
 	}
 }
 
-fn spawn_bevy_game_borderless(x: i32, y: i32, width: u32, height: u32) {
-	println!("🚀 Spawning borderless Bevy game window...");
+fn send_brp_request(game_process: &Arc<Mutex<GameProcess>>, request: BrpRequest) {
+	if let Ok(mut process) = game_process.lock() {
+		if let Ok(json) = serde_json::to_string(&request) {
+			if let Err(e) = writeln!(process.stdin, "{}", json) {
+				eprintln!("❌ Failed to send BRP request to game: {}", e);
+			}
+		}
+	}
+}
 
-	let game_path = "../bevy_demo_game/target/release/bevy_demo_game";
+fn send_brp_query_entities(game_process: &Arc<Mutex<GameProcess>>) {
+	let request = BrpRequest {
+		jsonrpc: "2.0".to_string(),
+		method: "world.query".to_string(),
+		id: Some(json!(REQUEST_ID_COUNTER.fetch_add(1, Ordering::Relaxed))),
+		params: Some(json!({
+			"data": {
+				"components": ["bevy_ecs::name::Name"],
+				"option": "all",
+				"has": []
+			},
+			"filter": {
+				"with": [],
+				"without": []
+			},
+			"strict": false
+		})),
+	};
 
-	std::thread::spawn(move || {
-		match Command::new(game_path)
-			.arg("--editor-mode")
-			.arg("--no-decorations")
-			.arg("--window-x")
-			.arg(x.to_string())
-			.arg("--window-y")
-			.arg(y.to_string())
-			.arg("--window-width")
-			.arg(width.to_string())
-			.arg("--window-height")
-			.arg(height.to_string())
-			.spawn()
-		{
-			Ok(mut child) => {
-				println!("✓ Borderless game window started with PID: {:?}", child.id());
-				println!("  Viewport: {}x{} at ({}, {})", width, height, x, y);
-				match child.wait() {
-					Ok(status) => println!("Game exited with status: {}", status),
-					Err(e) => eprintln!("Error waiting for game: {}", e),
+	send_brp_request(game_process, request);
+}
+
+fn handle_brp_response(response: OwnedBrpResponse, state: &Arc<RwLock<EditorState>>) {
+	match response.payload {
+		OwnedBrpPayload::Result { result } => {
+			// Try to parse as entity query result
+			if let Some(entities_array) = result.as_array() {
+				let mut entities = Vec::new();
+
+				for entity_data in entities_array.iter() {
+					if let Some(components) = entity_data.get("components") {
+						// Extract entity ID
+						let entity_id = entity_data.get("entity").and_then(|e| e.as_u64()).unwrap_or(0);
+
+						// Extract Name component
+						if let Some(name_val) = components.get("bevy_ecs::name::Name") {
+							let name = name_val.as_str().unwrap_or("Unknown").to_string();
+							entities.push(EntityInfo { id: entity_id, name });
+						}
+					}
+				}
+
+				if let Ok(mut s) = state.write() {
+					s.entities = entities;
 				}
 			}
-			Err(e) => eprintln!("❌ Failed to spawn game: {}", e),
 		}
-	});
+		OwnedBrpPayload::Error { error } => {
+			eprintln!("❌ BRP error: {}: {}", error.code, error.message);
+		}
+	}
 }
