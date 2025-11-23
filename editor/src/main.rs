@@ -1,14 +1,17 @@
 mod components;
 mod config;
 mod editor;
+mod tool;
 mod windows_manager;
 
 use anyhow::Result;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use serde::de;
 use std::sync::{Arc, Mutex, RwLock};
 
 use components::{App, PanelAligment, PanelState};
 use config::EditorConfig;
+use tool::Tool;
 
 #[derive(Clone, Debug)]
 struct EditorState {
@@ -41,24 +44,31 @@ async fn main() -> Result<()> {
 		panels: vec![
 			PanelState {
 				alignment: PanelAligment::Top,
+				..Default::default()
 			},
 			PanelState {
 				alignment: PanelAligment::Bottom,
+				..Default::default()
 			},
 			PanelState {
 				alignment: PanelAligment::Left,
+				..Default::default()
 			},
 			PanelState {
 				alignment: PanelAligment::Right,
+				..Default::default()
 			},
 			PanelState {
 				alignment: PanelAligment::Right,
+				..Default::default()
 			},
 			PanelState {
 				alignment: PanelAligment::Right,
+				..Default::default()
 			},
 			PanelState {
 				alignment: PanelAligment::CenterBottom,
+				..Default::default()
 			},
 		],
 		..Default::default()
