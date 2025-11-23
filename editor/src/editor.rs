@@ -1,7 +1,7 @@
 use crate::config::{EditorConfig, WindowConfig};
 use std::{
 	process::{Child, ChildStdin, Command, Stdio},
-	sync::{Arc, RwLock},
+	sync::{Arc, Mutex, RwLock},
 };
 
 // pub struct Editor {
@@ -23,7 +23,14 @@ use std::{
 // 	}
 // }
 
-pub fn spawn_game_process(path: &str, x: i32, y: i32, width: u32, height: u32, state: Arc<RwLock<EditorState>>) {
+pub fn spawn_game_process(
+	path: &str,
+	x: i32,
+	y: i32,
+	width: u32,
+	height: u32,
+	// state: Arc<RwLock<EditorState>>
+) {
 	println!("🚀 Spawning borderless Bevy game window...");
 
 	let game_path = "../bevy_demo_game/target/debug/bevy_demo_game";
@@ -53,37 +60,37 @@ pub fn spawn_game_process(path: &str, x: i32, y: i32, width: u32, height: u32, s
 				let stdout = child.stdout.take().expect("Failed to get stdout");
 
 				// Store game process in state
-				let game_process = Arc::new(Mutex::new(GameProcess { stdin, _child: child }));
-				if let Ok(mut s) = state.write() {
-					s.game_process = Some(game_process.clone());
-					s.game_connected = true;
-				}
+				// let game_process = Arc::new(Mutex::new(GameProcess { stdin, _child: child }));
+				// if let Ok(mut s) = state.write() {
+				// 	s.game_process = Some(game_process.clone());
+				// 	s.game_connected = true;
+				// }
 
 				// Start stdout reader thread
-				let state_clone = state.clone();
-				std::thread::spawn(move || {
-					let reader = BufReader::new(stdout);
-					for line in reader.lines() {
-						if let Ok(text) = line {
-							if text.is_empty() {
-								continue;
-							}
+				// let state_clone = state.clone();
+				// std::thread::spawn(move || {
+				// 	let reader = BufReader::new(stdout);
+				// 	for line in reader.lines() {
+				// 		if let Ok(text) = line {
+				// 			if text.is_empty() {
+				// 				continue;
+				// 			}
 
-							// Parse as owned BRP response
-							if let Ok(response) = serde_json::from_str::<OwnedBrpResponse>(&text) {
-								handle_brp_response(response, &state_clone);
-							}
-						}
-					}
-					eprintln!("📡 stdout reader thread exiting");
-					if let Ok(mut s) = state_clone.write() {
-						s.game_connected = false;
-					}
-				});
+				// 			// Parse as owned BRP response
+				// 			if let Ok(response) = serde_json::from_str::<OwnedBrpResponse>(&text) {
+				// 				handle_brp_response(response, &state_clone);
+				// 			}
+				// 		}
+				// 	}
+				// 	eprintln!("📡 stdout reader thread exiting");
+				// 	if let Ok(mut s) = state_clone.write() {
+				// 		s.game_connected = false;
+				// 	}
+				// });
 
-				// Send initial BRP query to list all entities with Name component
-				std::thread::sleep(std::time::Duration::from_millis(100));
-				send_brp_query_entities(&game_process);
+				// // Send initial BRP query to list all entities with Name component
+				// std::thread::sleep(std::time::Duration::from_millis(100));
+				// send_brp_query_entities(&game_process);
 			}
 			Err(e) => eprintln!("❌ Failed to spawn game: {}", e),
 		}

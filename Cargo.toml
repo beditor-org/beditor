@@ -1,14 +1,34 @@
-[package]
-name = "beditor"
+[workspace]
+members = ["editor", "bridge"]
+default-members = ["editor"]
+resolver = "2"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+license = "MIT OR Apache-2.0"
 
-[dependencies]
+[workspace.dependencies]
+# UI & Desktop
 dioxus = { version = "0.7", features = ["desktop"] }
-tokio = "1.48.0"
+raw-window-handle = "0.6"
+
+# Async runtime
+tokio = { version = "1.48.0", features = ["full"] }
+
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-anyhow = "1.0"
+
+# Bevy integration
 bevy = { version = "0.17", default-features = false, features = ["bevy_remote"] }
+
+# Error handling
+anyhow = "1.0"
+
+# Platform-specific
 x11 = { version = "2.21", features = ["xlib"] }
-raw-window-handle = "0.6"
+
+# IPC
+crossbeam-channel = "0.5"
