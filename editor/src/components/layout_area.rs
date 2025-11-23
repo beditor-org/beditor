@@ -8,7 +8,10 @@ pub fn LayoutArea(panels: Vec<PanelState>) -> Element {
 		for _panel in panels {
 			div {
 				class: "grow bg-red-100",
-				"pannel"
+				for _tool in _panel.tools.iter() {
+					{(_tool.component)()}
+				}
+				"panel content"
 			}
 		}
 	}

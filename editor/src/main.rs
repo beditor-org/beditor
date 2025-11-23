@@ -59,10 +59,22 @@ async fn main() -> Result<()> {
 			},
 			PanelState {
 				alignment: PanelAligment::Bottom,
+				tools: vec![Tool {
+					require_stand_alone_panel: None,
+					name: "StatusBar".to_string(),
+					component: components::StatusBar,
+					panel_group: None,
+				}],
 				..Default::default()
 			},
 			PanelState {
 				alignment: PanelAligment::Left,
+				tools: vec![Tool {
+					require_stand_alone_panel: None,
+					name: "Hierarchy".to_string(),
+					component: components::Dumy,
+					panel_group: None,
+				}],
 				..Default::default()
 			},
 			PanelState {
