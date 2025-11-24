@@ -1,5 +1,3 @@
-use std::alloc::Layout;
-
 use dioxus::prelude::*;
 
 use crate::components::{LayoutArea, PanelState};

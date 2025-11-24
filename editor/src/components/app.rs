@@ -2,11 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use dioxus::{core::Element, desktop::wry::dpi::PhysicalPosition, prelude::*};
 
-use crate::{
-	components::{top_bar::TopBar, EditorLayout, LeftPanel, RightPanel},
-	editor::get_window_position,
-	EditorState,
-};
+use crate::{components::EditorLayout, editor::get_window_position, EditorState};
 
 #[component]
 pub fn App() -> Element {

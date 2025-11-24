@@ -7,7 +7,6 @@ mod windows_manager;
 
 use anyhow::Result;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use serde::de;
 use std::sync::{Arc, Mutex, RwLock};
 
 use components::{App, PanelAligment, PanelState};
