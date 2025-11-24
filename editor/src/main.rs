@@ -1,9 +1,7 @@
 mod components;
 mod config;
 mod editor;
-mod layout;
 mod tool;
-mod windows_manager;
 
 use anyhow::Result;
 use std::sync::{Arc, RwLock};
@@ -12,18 +10,15 @@ use components::{App, PanelAligment, PanelState};
 use config::EditorConfig;
 use tool::Tool;
 
-#[derive(Clone, Debug)]
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 struct EditorState {
 	pub selected_entity: Option<String>,
 	// pub entities: Vec<EntityInfo>,
 	pub game_connected: bool,
 	pub config: EditorConfig,
-	pub layout: layout::LayoutConfig,
 	pub panels: Vec<components::PanelState>,
 	// pub game_process: Option<Arc<Mutex<GameProcess>>>,
 }
-
 
 #[tokio::main]
 async fn main() -> Result<()> {
