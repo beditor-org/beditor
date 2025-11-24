@@ -1,6 +1,4 @@
 @import "tailwindcss";
-@source "./src/**/*.{rs,html,css}";
+@import "./assets/main.css";
 
-.panel {
-	@apply bg-gray-800 border border-gray-700;
-}
+@source "./src/**/*.{rs,html,css}";

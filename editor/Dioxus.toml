@@ -1,6 +1,7 @@
 [application]
 name = "beditor"
 default_platform = "desktop"
+tailwind_output = "public/main.css"
 
 [web.app]
 title = "Beditor"
