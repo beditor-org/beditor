@@ -45,20 +45,32 @@ async fn main() -> Result<()> {
 
 	let editor_state = EditorState {
 		panels: vec![
+			// PanelState {
+			// 	alignment: PanelAligment::Top,
+			// 	..Default::default()
+			// },
+			// PanelState {
+			// 	alignment: PanelAligment::Top,
+			// 	..Default::default()
+			// },
+			// PanelState {
+			// 	alignment: PanelAligment::Bottom,
+			// 	..Default::default()
+			// },
 			PanelState {
 				alignment: PanelAligment::Top,
-				..Default::default()
-			},
-			PanelState {
-				alignment: PanelAligment::Top,
+				name: "Top Bar".to_string(),
+				tools: vec![Tool {
+					require_stand_alone_panel: None,
+					name: "Menu".to_string(),
+					component: components::TopBar,
+					panel_group: None,
+				}],
 				..Default::default()
 			},
 			PanelState {
 				alignment: PanelAligment::Bottom,
-				..Default::default()
-			},
-			PanelState {
-				alignment: PanelAligment::Bottom,
+				name: "Status Bar".to_string(),
 				tools: vec![Tool {
 					require_stand_alone_panel: None,
 					name: "StatusBar".to_string(),
@@ -69,38 +81,59 @@ async fn main() -> Result<()> {
 			},
 			PanelState {
 				alignment: PanelAligment::Left,
+				name: "Basic tools".to_string(),
 				tools: vec![Tool {
 					require_stand_alone_panel: None,
-					name: "Hierarchy".to_string(),
+					name: "Dumy".to_string(),
 					component: components::Dumy,
 					panel_group: None,
 				}],
 				..Default::default()
 			},
-			PanelState {
-				alignment: PanelAligment::Right,
-				..Default::default()
-			},
-			PanelState {
-				alignment: PanelAligment::Right,
-				..Default::default()
-			},
-			PanelState {
-				alignment: PanelAligment::Right,
-				..Default::default()
-			},
-			PanelState {
-				alignment: PanelAligment::CenterBottom,
-				..Default::default()
-			},
-			PanelState {
-				alignment: PanelAligment::CenterTop,
-				..Default::default()
-			},
-			PanelState {
-				alignment: PanelAligment::Left,
-				..Default::default()
-			},
+			// PanelState {
+			// 	alignment: PanelAligment::Right,
+			// 	tools: vec![Tool {
+			// 		require_stand_alone_panel: None,
+			// 		name: "Dumy".to_string(),
+			// 		component: components::Dumy,
+			// 		panel_group: None,
+			// 	}],
+			// 	..Default::default()
+			// },
+			// PanelState {
+			// 	alignment: PanelAligment::Right,
+			// 	tools: vec![Tool {
+			// 		require_stand_alone_panel: None,
+			// 		name: "Dumy".to_string(),
+			// 		component: components::Dumy,
+			// 		panel_group: None,
+			// 	}],
+			// 	..Default::default()
+			// },
+			// PanelState {
+			// 	alignment: PanelAligment::Right,
+			// 	..Default::default()
+			// },
+			// PanelState {
+			// 	alignment: PanelAligment::Right,
+			// 	..Default::default()
+			// },
+			// PanelState {
+			// 	alignment: PanelAligment::Right,
+			// 	..Default::default()
+			// },
+			// PanelState {
+			// 	alignment: PanelAligment::CenterBottom,
+			// 	..Default::default()
+			// },
+			// PanelState {
+			// 	alignment: PanelAligment::CenterTop,
+			// 	..Default::default()
+			// },
+			// PanelState {
+			// 	alignment: PanelAligment::Left,
+			// 	..Default::default()
+			// },
 		],
 		..Default::default()
 	};

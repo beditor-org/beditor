@@ -19,3 +19,4 @@ pub use right_bar::RightPanel;
 pub use dumy::Dumy;
 pub use layout_area::LayoutArea;
 pub use status_bar::StatusBar;
+pub use top_bar::TopBar;

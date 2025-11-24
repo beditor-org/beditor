@@ -14,13 +14,26 @@ pub enum PanelAligment {
 	CenterBottom,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PanelState {
 	pub alignment: PanelAligment,
 	pub tools: Vec<Tool>,
+	pub name: String,
+	pub is_visible: bool,
 	// pub is_open: bool,
 	// pub title: String,
 	// Additional fields can be added as needed
+}
+
+impl Default for PanelState {
+	fn default() -> Self {
+		Self {
+			alignment: PanelAligment::Left,
+			tools: Vec::new(),
+			name: String::new(),
+			is_visible: true,
+		}
+	}
 }
 #[component]
 pub fn Panel() -> Element {

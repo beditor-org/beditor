@@ -13,15 +13,18 @@ pub fn EditorLayout(panels: Vec<PanelState>) -> Element {
 	let mut center_top_panels = vec![];
 	let mut center_bottom_panels = vec![];
 	let mut center_panel = None;
-	panels.into_iter().for_each(|pannel| match pannel.alignment {
-		crate::components::PanelAligment::Top => top_panels.push(pannel),
-		crate::components::PanelAligment::Bottom => bottom_panels.push(pannel),
-		crate::components::PanelAligment::Left => left_panels.push(pannel),
-		crate::components::PanelAligment::Right => right_panels.push(pannel),
-		crate::components::PanelAligment::CenterTop => center_top_panels.push(pannel),
-		crate::components::PanelAligment::CenterBottom => center_bottom_panels.push(pannel),
-		crate::components::PanelAligment::Center => center_panel = Some(pannel),
-	});
+	panels
+		.into_iter()
+		.filter(|pannel| pannel.is_visible)
+		.for_each(|pannel| match pannel.alignment {
+			crate::components::PanelAligment::Top => top_panels.push(pannel),
+			crate::components::PanelAligment::Bottom => bottom_panels.push(pannel),
+			crate::components::PanelAligment::Left => left_panels.push(pannel),
+			crate::components::PanelAligment::Right => right_panels.push(pannel),
+			crate::components::PanelAligment::CenterTop => center_top_panels.push(pannel),
+			crate::components::PanelAligment::CenterBottom => center_bottom_panels.push(pannel),
+			crate::components::PanelAligment::Center => center_panel = Some(pannel),
+		});
 	rsx! {
 		div {
 			class: "flex flex-col h-screen overflow-hidden gap-3",

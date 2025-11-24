@@ -12,6 +12,10 @@ use crate::{
 pub fn App() -> Element {
 	let state = use_context::<Arc<RwLock<EditorState>>>();
 
+	// Create panels signal and provide it to children
+	let initial_panels = state.read().map(|s| s.panels.clone()).unwrap_or_default();
+	let panels_signal = use_context_provider(|| Signal::new(initial_panels));
+
 	let mut game_spawned = use_signal(|| false);
 
 	let state_for_effect = state.clone();
@@ -62,7 +66,7 @@ pub fn App() -> Element {
 	rsx! {
 		style { {include_str!("../../assets/tailwind.css")} }
 		EditorLayout {
-			panels: state.read().map(|s| s.panels.clone()).unwrap_or_default(),
+			panels: panels_signal(),
 		}
 	}
 }
