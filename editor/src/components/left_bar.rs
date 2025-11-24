@@ -5,7 +5,7 @@ use dioxus::{core::Element, prelude::*};
 #[component]
 pub fn LeftPanel<S: 'static>() -> Element {
 	let state = use_context::<Arc<RwLock<S>>>();
-	let mut selected = use_signal(|| None::<String>);
+	let selected = use_signal(|| None::<String>);
 	let mut update_trigger = use_signal(|| 0u32);
 
 	// Synchronize with global state

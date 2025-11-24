@@ -6,14 +6,14 @@ mod tool;
 mod windows_manager;
 
 use anyhow::Result;
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 use components::{App, PanelAligment, PanelState};
 use config::EditorConfig;
 use tool::Tool;
 
 #[derive(Clone, Debug)]
+#[derive(Default)]
 struct EditorState {
 	pub selected_entity: Option<String>,
 	// pub entities: Vec<EntityInfo>,
@@ -24,19 +24,6 @@ struct EditorState {
 	// pub game_process: Option<Arc<Mutex<GameProcess>>>,
 }
 
-impl Default for EditorState {
-	fn default() -> Self {
-		Self {
-			selected_entity: None,
-			layout: layout::LayoutConfig::default(),
-			panels: Vec::new(),
-			// entities: vec![],
-			game_connected: false,
-			config: EditorConfig::default(),
-			// game_process: None,
-		}
-	}
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -138,7 +125,7 @@ async fn main() -> Result<()> {
 	};
 
 	let window = dioxus::desktop::WindowBuilder::new()
-		.with_title(format!("{}", config.top_bar.title))
+		.with_title(config.top_bar.title.to_string())
 		.with_decorations(true)
 		.with_resizable(true);
 	let window_cfg = dioxus::desktop::Config::new().with_window(window);

@@ -12,9 +12,7 @@ mod top_bar;
 
 pub use app::App;
 pub use layout::EditorLayout;
-pub use left_bar::LeftPanel;
-pub use panel::{Panel, PanelAligment, PanelState};
-pub use right_bar::RightPanel;
+pub use panel::{PanelAligment, PanelState};
 
 pub use dumy::Dumy;
 pub use layout_area::LayoutArea;

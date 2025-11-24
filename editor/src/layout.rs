@@ -41,7 +41,7 @@ impl PanelConfig {
 
 	pub fn size_style(&self) -> String {
 		match self.size {
-			PanelSize::Fixed(px) => format!("{}px", px),
+			PanelSize::Fixed(px) => format!("{px}px"),
 			PanelSize::Percentage(p) => format!("{}%", p * 100.0),
 			PanelSize::Auto => "auto".to_string(),
 		}

@@ -12,7 +12,7 @@ pub fn App() -> Element {
 	let initial_panels = state.read().map(|s| s.panels.clone()).unwrap_or_default();
 	let panels_signal = use_context_provider(|| Signal::new(initial_panels));
 
-	let mut game_spawned = use_signal(|| false);
+	let game_spawned = use_signal(|| false);
 
 	let state_for_effect = state.clone();
 	use_effect(move || {
@@ -44,8 +44,7 @@ pub fn App() -> Element {
 			let viewport_width = size.width.saturating_sub(left_panel_width + right_panel_width);
 			let viewport_height = size.height.saturating_sub(top_bar_height + 35);
 			println!(
-				"  Viewport screen position: {}x{} at ({}, {})",
-				viewport_width, viewport_height, viewport_x, viewport_y
+				"  Viewport screen position: {viewport_width}x{viewport_height} at ({viewport_x}, {viewport_y})"
 			);
 
 			// spawn_bevy_game_borderless(

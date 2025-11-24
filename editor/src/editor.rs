@@ -1,8 +1,4 @@
-use crate::config::{EditorConfig, WindowConfig};
-use std::{
-	process::{Child, ChildStdin, Command, Stdio},
-	sync::{Arc, Mutex, RwLock},
-};
+use std::process::{Command, Stdio};
 
 // pub struct Editor {
 // 	config: EditorConfig,
@@ -54,7 +50,7 @@ pub fn spawn_game_process(
 		{
 			Ok(mut child) => {
 				println!("✓ Borderless game window started with PID: {:?}", child.id());
-				println!("  Viewport: {}x{} at ({}, {})", width, height, x, y);
+				println!("  Viewport: {width}x{height} at ({x}, {y})");
 
 				let stdin = child.stdin.take().expect("Failed to get stdin");
 				let stdout = child.stdout.take().expect("Failed to get stdout");
@@ -92,7 +88,7 @@ pub fn spawn_game_process(
 				// std::thread::sleep(std::time::Duration::from_millis(100));
 				// send_brp_query_entities(&game_process);
 			}
-			Err(e) => eprintln!("❌ Failed to spawn game: {}", e),
+			Err(e) => eprintln!("❌ Failed to spawn game: {e}"),
 		}
 	});
 }
