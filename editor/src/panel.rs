@@ -1,6 +1,8 @@
+use std::{any::TypeId, collections::HashMap};
+
 use dioxus::prelude::*;
 
-use crate::tool::Tool;
+use crate::{plugin::PluginState, tool::Tool};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum PanelAligment {
@@ -14,6 +16,11 @@ pub enum PanelAligment {
 	CenterBottom,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct PanelConfig {
+	pub name: String,
+	pub alignment: PanelAligment,
+}
 #[derive(Clone, Debug, PartialEq)]
 pub struct PanelState {
 	pub alignment: PanelAligment,
@@ -35,6 +42,28 @@ impl Default for PanelState {
 		}
 	}
 }
+
+#[derive(Clone, Default)]
+pub struct PanelsManager {
+	pub panels: Vec<PanelState>,
+}
+
+impl From<HashMap<TypeId, PluginState>> for PanelsManager {
+	fn from(value: HashMap<TypeId, PluginState>) -> Self {
+		Self { panels: Vec::new() }
+	}
+}
+
+impl PanelsManager {
+	pub fn add_panel(&mut self, panel: PanelState) {
+		self.panels.push(panel);
+	}
+
+	pub fn get_panel_by_name(&mut self, name: &str) -> Option<&mut PanelState> {
+		self.panels.iter_mut().find(|p| p.name == name)
+	}
+}
+
 #[component]
 pub fn Panel() -> Element {
 	rsx! {

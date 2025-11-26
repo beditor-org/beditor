@@ -1,9 +1,50 @@
-use dioxus::prelude::*;
+use std::sync::Arc;
 
-use crate::components::{LayoutArea, PanelState};
+use dioxus::{html::g::to, prelude::*};
+
+use crate::{components::LayoutArea, panel::PanelsManager, tool, PanelAligment, PanelState, PluginRegistry, PluginsManager};
 
 #[component]
-pub fn EditorLayout(panels: Vec<PanelState>) -> Element {
+pub fn EditorLayout() -> Element {
+	let plugins_registry = use_context::<Arc<PluginRegistry>>();
+	let pm = use_context::<Signal<PluginsManager>>();
+
+	let panels_manager: Signal<PanelsManager> = use_context_provider(|| {
+		let mut panels_manager = PanelsManager::default();
+		pm.read()
+			.plugins
+			.iter()
+			.filter(|(_, plugin_state)| plugin_state.enabled)
+			.for_each(|(typeid, plugin_state)| {
+				let plugin = plugins_registry.plugins.get(typeid).unwrap();
+				// Register panels
+				for panel_cfg in plugin.get_panels() {
+					let panel_state = PanelState {
+						name: panel_cfg.name,
+						alignment: panel_cfg.alignment,
+						..Default::default()
+					};
+					panels_manager.add_panel(panel_state);
+				}
+				for tool in plugin.get_tools() {
+					match tool.placement {
+						tool::ToolPlacement::PanelByName(ref panel_name) => {
+							if let Some(panel) = panels_manager.get_panel_by_name(&panel_name) {
+								panel.tools.push(tool);
+							}
+						}
+						tool::ToolPlacement::PanelByAlignment(alignment) => {
+							todo!()
+						}
+						tool::ToolPlacement::OwnPanel(panel_config) => todo!(),
+					}
+				}
+				// Register tools
+				// for tool in plugin.get_tools() {
+			});
+		println!("✓ PanelsManager initialized with {:#?} panels", panels_manager.panels);
+		Signal::new(panels_manager)
+	});
 	let mut top_panels = vec![];
 	let mut bottom_panels = vec![];
 	let mut left_panels = vec![];
@@ -11,17 +52,20 @@ pub fn EditorLayout(panels: Vec<PanelState>) -> Element {
 	let mut center_top_panels = vec![];
 	let mut center_bottom_panels = vec![];
 	let mut center_panel = None;
-	panels
+	panels_manager
+		.read()
+		.panels
+		.clone()
 		.into_iter()
 		.filter(|pannel| pannel.is_visible)
 		.for_each(|pannel| match pannel.alignment {
-			crate::components::PanelAligment::Top => top_panels.push(pannel),
-			crate::components::PanelAligment::Bottom => bottom_panels.push(pannel),
-			crate::components::PanelAligment::Left => left_panels.push(pannel),
-			crate::components::PanelAligment::Right => right_panels.push(pannel),
-			crate::components::PanelAligment::CenterTop => center_top_panels.push(pannel),
-			crate::components::PanelAligment::CenterBottom => center_bottom_panels.push(pannel),
-			crate::components::PanelAligment::Center => center_panel = Some(pannel),
+			PanelAligment::Top => top_panels.push(pannel),
+			PanelAligment::Bottom => bottom_panels.push(pannel),
+			PanelAligment::Left => left_panels.push(pannel),
+			PanelAligment::Right => right_panels.push(pannel),
+			PanelAligment::CenterTop => center_top_panels.push(pannel),
+			PanelAligment::CenterBottom => center_bottom_panels.push(pannel),
+			PanelAligment::Center => center_panel = Some(pannel),
 		});
 	rsx! {
 		div {

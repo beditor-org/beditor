@@ -31,3 +31,4 @@ x11.workspace = true
 
 # Bridge dependency
 bridge = { path = "../bridge" }
+strum = { workspace = true, features = ["derive"] }

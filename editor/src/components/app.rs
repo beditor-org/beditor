@@ -2,15 +2,20 @@ use std::sync::{Arc, RwLock};
 
 use dioxus::{core::Element, desktop::wry::dpi::PhysicalPosition, prelude::*};
 
-use crate::{components::EditorLayout, editor::get_window_position, EditorState};
+use crate::{
+	components::EditorLayout, editor::get_window_position, panel::PanelsManager, EditorContext, PluginRegistry, PluginsManager,
+};
 
 #[component]
 pub fn App() -> Element {
-	let state = use_context::<Arc<RwLock<EditorState>>>();
+	let state = use_context::<Arc<RwLock<EditorContext>>>();
+	let plugins_registry = use_context::<Arc<PluginRegistry>>();
+	use_context_provider(|| Signal::new(Into::<PluginsManager>::into(plugins_registry.as_ref())));
 
 	// Create panels signal and provide it to children
-	let initial_panels = state.read().map(|s| s.panels.clone()).unwrap_or_default();
-	let panels_signal = use_context_provider(|| Signal::new(initial_panels));
+	// let initial_panels = state.read().map(|s| s.panels.clone()).unwrap_or_default();
+	// let panels_signal = use_context_provider(|| Signal::new(initial_panels));
+	// use_context_provider(|| Signal::new(manager.read().unwrap().plugin_states.clone()));
 
 	let game_spawned = use_signal(|| false);
 
@@ -43,9 +48,7 @@ pub fn App() -> Element {
 			let viewport_y = window_position.y + top_bar_height as i32 + 2;
 			let viewport_width = size.width.saturating_sub(left_panel_width + right_panel_width);
 			let viewport_height = size.height.saturating_sub(top_bar_height + 35);
-			println!(
-				"  Viewport screen position: {viewport_width}x{viewport_height} at ({viewport_x}, {viewport_y})"
-			);
+			println!("  Viewport screen position: {viewport_width}x{viewport_height} at ({viewport_x}, {viewport_y})");
 
 			// spawn_bevy_game_borderless(
 			// 	viewport_x as i32,
@@ -57,11 +60,9 @@ pub fn App() -> Element {
 			// game_spawned.set(true);
 		});
 	});
-
+	// let _s = asset!("/assets/main.css");
 	rsx! {
-		style { {include_str!("../../assets/tailwind.css")} }
-		EditorLayout {
-			panels: panels_signal(),
-		}
+		style { {include_str!("../../public/main.css")} }
+		EditorLayout {}
 	}
 }

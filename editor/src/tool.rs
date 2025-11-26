@@ -1,11 +1,18 @@
 use dioxus::core::Element;
 
-use crate::components::PanelState;
+use crate::{PanelAligment, PanelConfig};
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ToolPlacement {
+	PanelByName(String),             // Place in specific panel by name
+	PanelByAlignment(PanelAligment), // Place in any panel with this alignment
+	OwnPanel(PanelConfig),           // Create dedicated panel for this tool
+	                                 // NoUI,                            // No UI component (background service)
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Tool {
-	pub require_stand_alone_panel: Option<PanelState>, // otherwise should be added manually to existing panel
+	pub placement: ToolPlacement,
 	pub name: String,
 	pub component: fn() -> Element,
-	pub panel_group: Option<String>,
 }

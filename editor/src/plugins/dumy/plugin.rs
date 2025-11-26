@@ -1,0 +1,37 @@
+use strum::Display;
+
+use crate::{plugins::dumy::dumy::Dumy, tool::ToolPlacement, PanelConfig, Plugin, Tool};
+
+#[derive(Display)]
+pub enum DumyPluginPanel {
+	#[strum(to_string = "Status dumy bar")]
+	StatusBar,
+	#[strum(to_string = "Left dumy bar")]
+	LeftBar,
+}
+pub struct DumyPlugin;
+
+impl Plugin for DumyPlugin {
+	fn get_name(&self) -> String {
+		"Dumy Plugin".to_string()
+	}
+
+	fn get_description(&self) -> String {
+		"Dumy plugin for testing purposes".to_string()
+	}
+
+	fn get_panels(&self) -> Vec<PanelConfig> {
+		vec![PanelConfig {
+			alignment: crate::panel::PanelAligment::Left,
+			name: DumyPluginPanel::LeftBar.to_string(),
+		}]
+	}
+
+	fn get_tools(&self) -> Vec<Tool> {
+		vec![Tool {
+			placement: ToolPlacement::PanelByName(DumyPluginPanel::LeftBar.to_string()),
+			name: "Dumy tool".to_string(),
+			component: Dumy,
+		}]
+	}
+}

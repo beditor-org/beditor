@@ -1,11 +1,15 @@
+use std::sync::{Arc, RwLock};
+
+use bevy::app::Plugin;
 use dioxus::{core::Element, prelude::*};
 
-use crate::components::PanelState;
+use crate::{panel::PanelsManager, PanelState, PluginRegistry, PluginsManager};
 
 #[component]
 fn MenuBar() -> Element {
-	let mut panels = use_context::<Signal<Vec<PanelState>>>();
-
+	let plugins_registry = use_context::<Arc<PluginRegistry>>();
+	let mut panels_manager = use_context::<PanelsManager>();
+	let mut plugins_manager = use_context::<PluginsManager>();
 	rsx! {
 		div { class: "flex flex-row bg-gray-800 h-8",
 			// File menu
@@ -23,29 +27,52 @@ fn MenuBar() -> Element {
 			}
 
 			// Panels menu
-			MenuDropdown { label: "Panels",
-				for (idx, panel) in panels.read().iter().enumerate() {
+			MenuDropdown { label: "Plugins",
+				for (idx, (typeid, plugin)) in plugins_manager.plugins.iter().enumerate() {
 					{
-						let name = panel.name.clone();
-						let is_visible = panel.is_visible;
+						let name = plugins_registry.plugins.get(typeid).unwrap().get_name();
 						rsx! {
 							div {
 								key: "{idx}",
 								class: "px-3 py-1 hover:bg-gray-700 cursor-pointer flex items-center justify-between",
-								onclick: move |_| {
-									let mut panels_write = panels.write();
-									panels_write[idx].is_visible = !panels_write[idx].is_visible;
-									println!("Panel {} visibility: {}", name, panels_write[idx].is_visible);
-								},
+								// onclick: move |_| {
+								// 	let mut panels_write = ;
+								// 	plugins.write()[idx].is_visible = !panels_write[idx].is_visible;
+								// 	println!("Panel {} visibility: {}", name, panels_write[idx].is_visible);
+								// },
 								span { "{name}" }
-								if is_visible {
-									span { class: "text-green-500 ml-2", "✓" }
-								}
+								// if is_visible {
+								// 	span { class: "text-green-500 ml-2", "✓" }
+								// }
 							}
 						}
 					}
 				}
 			}
+
+			// MenuDropdown { label: "Panels",
+			// 	for (idx, (typeid, panel)) in panels_manager.panels.iter().enumerate() {
+			// 		{
+			// 			let name = panel.name.clone();
+			// 			let is_visible = panel.is_visible;
+			// 			rsx! {
+			// 				div {
+			// 					key: "{idx}",
+			// 					class: "px-3 py-1 hover:bg-gray-700 cursor-pointer flex items-center justify-between",
+			// 					onclick: move |_| {
+			// 						// let mut panels_write = panels_manager.write();
+			// 						// panels_write[idx].is_visible = !panels_write[idx].is_visible;
+			// 						// println!("Panel {} visibility: {}", name, panels_write[idx].is_visible);
+			// 					},
+			// 					span { "{name}" }
+			// 					if is_visible {
+			// 						span { class: "text-green-500 ml-2", "✓" }
+			// 					}
+			// 				}
+			// 			}
+			// 		}
+			// 	}
+			// }
 		}
 	}
 }

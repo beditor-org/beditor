@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::components::PanelState;
+use crate::PanelState;
 
 #[component]
 pub fn LayoutArea(panels: Vec<PanelState>) -> Element {

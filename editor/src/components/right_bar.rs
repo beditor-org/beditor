@@ -1,8 +1,10 @@
-
 use dioxus::{core::Element, prelude::*};
 
 #[component]
 pub fn RightPanel() -> Element {
+	let mut foo = use_signal(|| 1);
+	let bar = foo * 10;
+
 	// let state = use_context::<Arc<RwLock<S>>>();
 
 	// let selected_name = use_memo(move || {
@@ -17,7 +19,16 @@ pub fn RightPanel() -> Element {
 		div {
 			class: "panel right-panel",
 			h3 { class: "panel-title", "Inspector" }
-
+			span {
+				"foo: {foo}"
+				"bar: {bar}"
+			}
+			button {
+				onclick: move |_| {
+					foo.set(foo+1);
+				},
+				"Increase"
+			  }
 			// if selected_name() != "Nothing selected" {
 			// 	div { class: "properties",
 			// 		h4 { style: "color: #ccc; margin: 10px 0;", "{selected_name}" }
