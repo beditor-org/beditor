@@ -37,6 +37,12 @@ pub struct PluginState {
 	pub enabled: bool,
 }
 
+impl PluginState {
+	pub fn toggle(&mut self) {
+		self.enabled = !self.enabled;
+	}
+}
+
 #[derive(Clone)]
 pub struct PluginsManager {
 	pub plugins: HashMap<TypeId, PluginState>,
@@ -56,6 +62,12 @@ impl From<&PluginRegistry> for PluginsManager {
 }
 
 impl PluginsManager {
+	pub fn toggle(&mut self, type_id: TypeId) {
+		if let Some(state) = self.plugins.get_mut(&type_id) {
+			state.toggle();
+		}
+	}
+
 	pub fn enable<T: Plugin + 'static>(&mut self) {
 		let type_id = TypeId::of::<T>();
 		if let Some(state) = self.plugins.get_mut(&type_id) {

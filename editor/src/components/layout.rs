@@ -9,8 +9,13 @@ pub fn EditorLayout() -> Element {
 	let plugins_registry = use_context::<Arc<PluginRegistry>>();
 	let pm = use_context::<Signal<PluginsManager>>();
 
-	let panels_manager: Signal<PanelsManager> = use_context_provider(|| {
-		let mut panels_manager = PanelsManager::default();
+	let mut panels_manager: Signal<PanelsManager> = use_context_provider(|| Signal::new(PanelsManager::default()));
+
+	// Rebuild panels when plugin states change
+	use_effect(move || {
+		pm.read(); // Subscribe to changes
+
+		let mut new_panels = PanelsManager::default();
 		pm.read()
 			.plugins
 			.iter()
@@ -24,12 +29,12 @@ pub fn EditorLayout() -> Element {
 						alignment: panel_cfg.alignment,
 						..Default::default()
 					};
-					panels_manager.add_panel(panel_state);
+					new_panels.add_panel(panel_state);
 				}
 				for tool in plugin.get_tools() {
 					match tool.placement {
 						tool::ToolPlacement::PanelByName(ref panel_name) => {
-							if let Some(panel) = panels_manager.get_panel_by_name(&panel_name) {
+							if let Some(panel) = new_panels.get_panel_by_name(&panel_name) {
 								panel.tools.push(tool);
 							}
 						}
@@ -39,11 +44,9 @@ pub fn EditorLayout() -> Element {
 						tool::ToolPlacement::OwnPanel(panel_config) => todo!(),
 					}
 				}
-				// Register tools
-				// for tool in plugin.get_tools() {
 			});
-		println!("✓ PanelsManager initialized with {:#?} panels", panels_manager.panels);
-		Signal::new(panels_manager)
+		println!("✓ PanelsManager rebuilt with {:?} panels", new_panels.panels.len());
+		panels_manager.set(new_panels);
 	});
 	let mut top_panels = vec![];
 	let mut bottom_panels = vec![];

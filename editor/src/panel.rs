@@ -43,6 +43,12 @@ impl Default for PanelState {
 	}
 }
 
+impl PanelState {
+	pub fn toggle(&mut self) {
+		self.is_visible = !self.is_visible;
+	}
+}
+
 #[derive(Clone, Default)]
 pub struct PanelsManager {
 	pub panels: Vec<PanelState>,
