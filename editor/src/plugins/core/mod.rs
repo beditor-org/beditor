@@ -3,5 +3,5 @@ mod plugin;
 mod status_bar;
 
 pub use main_menu::MenuBar;
-pub use plugin::CorePlugin;
+pub use plugin::{CorePlugin, CorePluginPanel};
 pub use status_bar::StatusBar;

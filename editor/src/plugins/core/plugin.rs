@@ -1,7 +1,7 @@
 use crate::{
 	plugins::core::{MenuBar, StatusBar},
 	tool::ToolPlacement,
-	PanelConfig, Plugin, Tool,
+	PanelConfig, PanelDisplayMode, Plugin, Tool,
 };
 use strum::Display;
 
@@ -28,10 +28,12 @@ impl Plugin for CorePlugin {
 			PanelConfig {
 				alignment: crate::panel::PanelAligment::Bottom,
 				name: CorePluginPanel::StatusBar.to_string(),
+				display_mode: PanelDisplayMode::Stacked,
 			},
 			PanelConfig {
 				alignment: crate::panel::PanelAligment::Top,
 				name: CorePluginPanel::TopBar.to_string(),
+				display_mode: PanelDisplayMode::Stacked,
 			},
 		]
 	}

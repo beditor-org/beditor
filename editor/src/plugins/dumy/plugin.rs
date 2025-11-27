@@ -1,6 +1,10 @@
 use strum::Display;
 
-use crate::{plugins::dumy::dumy::Dumy, tool::ToolPlacement, PanelConfig, Plugin, Tool};
+use crate::{
+	plugins::{core::CorePluginPanel, dumy::dumy::Dumy, CorePlugin},
+	tool::ToolPlacement,
+	PanelConfig, PanelDisplayMode, Plugin, Tool,
+};
 
 #[derive(Display)]
 pub enum DumyPluginPanel {
@@ -24,14 +28,22 @@ impl Plugin for DumyPlugin {
 		vec![PanelConfig {
 			alignment: crate::panel::PanelAligment::Left,
 			name: DumyPluginPanel::LeftBar.to_string(),
+			display_mode: PanelDisplayMode::Tabbed,
 		}]
 	}
 
 	fn get_tools(&self) -> Vec<Tool> {
-		vec![Tool {
-			placement: ToolPlacement::PanelByName(DumyPluginPanel::LeftBar.to_string()),
-			name: "Dumy tool".to_string(),
-			component: Dumy,
-		}]
+		vec![
+			Tool {
+				placement: ToolPlacement::PanelByName(DumyPluginPanel::LeftBar.to_string()),
+				name: "Dumy tool".to_string(),
+				component: Dumy,
+			},
+			Tool {
+				placement: ToolPlacement::PanelByName(CorePluginPanel::StatusBar.to_string()),
+				name: "Dumy tool".to_string(),
+				component: Dumy,
+			},
+		]
 	}
 }

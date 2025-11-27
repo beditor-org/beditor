@@ -9,6 +9,6 @@ mod tool;
 
 pub use config::EditorConfig;
 pub use context::EditorContext;
-pub use panel::{PanelAligment, PanelConfig, PanelState};
+pub use panel::{PanelAligment, PanelConfig, PanelDisplayMode, PanelState};
 pub use plugin::{Plugin, PluginRegistry, PluginState, PluginsManager};
 pub use tool::Tool;

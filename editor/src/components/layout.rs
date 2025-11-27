@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use dioxus::{html::g::to, prelude::*};
+use dioxus::prelude::*;
 
 use crate::{components::LayoutArea, panel::PanelsManager, tool, PanelAligment, PanelState, PluginRegistry, PluginsManager};
 
@@ -27,21 +27,26 @@ pub fn EditorLayout() -> Element {
 					let panel_state = PanelState {
 						name: panel_cfg.name,
 						alignment: panel_cfg.alignment,
+						display_mode: panel_cfg.display_mode,
 						..Default::default()
 					};
 					new_panels.add_panel(panel_state);
 				}
 				for tool in plugin.get_tools() {
+					println!("🔧 Processing tool '{}' from plugin '{}'", tool.name, plugin.get_name());
 					match tool.placement {
 						tool::ToolPlacement::PanelByName(ref panel_name) => {
 							if let Some(panel) = new_panels.get_panel_by_name(&panel_name) {
+								println!("  ✓ Added tool '{}' to panel '{}'", tool.name, panel_name);
 								panel.tools.push(tool);
+							} else {
+								println!("  ⚠️ Warning: Panel '{}' not found for tool '{}'", panel_name, tool.name);
 							}
 						}
-						tool::ToolPlacement::PanelByAlignment(alignment) => {
+						tool::ToolPlacement::PanelByAlignment(_alignment) => {
 							todo!()
 						}
-						tool::ToolPlacement::OwnPanel(panel_config) => todo!(),
+						tool::ToolPlacement::OwnPanel(_panel_config) => todo!(),
 					}
 				}
 			});
@@ -73,34 +78,22 @@ pub fn EditorLayout() -> Element {
 	rsx! {
 		div {
 			class: "flex flex-col h-screen overflow-hidden gap-3",
-			LayoutArea {
-				panels: top_panels.clone(),
-			}
+			LayoutArea { panels: top_panels }
 			div{
 				class: "flex flex-row grow-1 gap-3",
-				LayoutArea {
-					panels: left_panels.clone(),
-				}
+				LayoutArea { panels: left_panels }
 				div {
 					class: "flex flex-col grow-1 gap-3",
-					LayoutArea {
-						panels: center_top_panels.clone(),
-					}
+					LayoutArea { panels: center_top_panels }
 					div{
 						class: "grow-1 bg-red-100",
-						"center pannel"
+						"center panel"
 					}
-					LayoutArea {
-						panels: center_bottom_panels.clone(),
-					}
+					LayoutArea { panels: center_bottom_panels }
 				}
-				LayoutArea {
-					panels: right_panels.clone(),
-				}
+				LayoutArea { panels: right_panels }
 			}
-			LayoutArea {
-				panels: bottom_panels.clone(),
-			}
+			LayoutArea { panels: bottom_panels }
 		}
 	}
 }
