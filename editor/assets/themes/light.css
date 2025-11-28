@@ -9,7 +9,10 @@
   --color-accent: #0078d4;
   --color-accent-hover: #106ebe;
   
-  --spacing-1: 1px;
+  --spacing-1: 4px;
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 8px;
 }
 
 body[data-theme="light"] {

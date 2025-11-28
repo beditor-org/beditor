@@ -12,6 +12,9 @@
 	--color-accent-hover: var(--color-accent-hover);
 	
 	--spacing-1: var(--spacing-1);
+	--radius: var(--radius);
+	--radius-sm: var(--radius-sm);
+	--radius-lg: var(--radius-lg);
 }
 
 @layer components {
