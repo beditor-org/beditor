@@ -1,4 +1,6 @@
 @import "tailwindcss";
 @import "./assets/main.css";
+@import "./assets/themes/dark.css";
+@import "./assets/themes/light.css";
 
 @source "./src/**/*.{rs,html,css}";

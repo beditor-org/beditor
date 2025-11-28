@@ -14,7 +14,7 @@ pub fn Panel(panel: PanelState) -> Element {
 pub fn StackedPanel(panel: PanelState) -> Element {
 	rsx! {
 		div{
-			class: "grow bg-red-100",
+			class: "grow panel",
 			for tool in panel.tools.iter() {
 				 {(tool.component)()}
 
@@ -27,7 +27,7 @@ pub fn StackedPanel(panel: PanelState) -> Element {
 pub fn TabbedPanel(panel: PanelState) -> Element {
 	rsx!(for tool in panel.tools.iter() {
 		div{
-			class: "grow bg-red-100",
+			class: "grow panel",
 			"tabbed" {(tool.component)()}
 		}
 	})

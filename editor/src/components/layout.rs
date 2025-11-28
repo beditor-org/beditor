@@ -42,16 +42,16 @@ pub fn EditorLayout() -> Element {
 		});
 	rsx! {
 		div {
-			class: "flex flex-col h-screen overflow-hidden gap-3",
+			class: "flex flex-col h-screen overflow-hidden gap-1 p-1 bg-primary",
 			LayoutArea { panels: top_panels }
 			div{
-				class: "flex flex-row grow-1 gap-3",
+				class: "flex flex-row grow-1 gap-1",
 				LayoutArea { panels: left_panels }
 				div {
-					class: "flex flex-col grow-1 gap-3",
+					class: "flex flex-col grow-1 gap-1",
 					LayoutArea { panels: center_top_panels }
 					div{
-						class: "grow-1 bg-red-100",
+						class: "grow-1 panel",
 						"center panel"
 					}
 					LayoutArea { panels: center_bottom_panels }

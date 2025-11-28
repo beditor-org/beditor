@@ -1,0 +1,18 @@
+/* Dark Theme */
+:root {
+  --color-bg-primary: #1e1e1e;
+  --color-bg-secondary: #252526;
+  --color-bg-tertiary: #2d2d30;
+  --color-border: #3e3e42;
+  --color-text: #cccccc;
+  --color-text-secondary: #9d9d9d;
+  --color-accent: #007acc;
+  --color-accent-hover: #005a9e;
+  
+  --spacing-1: 4px;
+}
+
+body {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text);
+}

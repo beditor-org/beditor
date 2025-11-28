@@ -1,0 +1,18 @@
+/* Light Theme */
+:root[data-theme="light"] {
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f3f3f3;
+  --color-bg-tertiary: #e8e8e8;
+  --color-border: #d4d4d4;
+  --color-text: #1e1e1e;
+  --color-text-secondary: #616161;
+  --color-accent: #0078d4;
+  --color-accent-hover: #106ebe;
+  
+  --spacing-1: 1px;
+}
+
+body[data-theme="light"] {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text);
+}

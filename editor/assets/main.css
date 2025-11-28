@@ -1,3 +1,25 @@
-.jojasdo {
-	@apply bg-gray-800 border border-gray-100;
+@import './themes/dark.css';
+@import './themes/light.css';
+
+@theme {
+	--color-primary: var(--color-bg-primary);
+	--color-secondary: var(--color-bg-secondary);
+	--color-tertiary: var(--color-bg-tertiary);
+	--color-border: var(--color-border);
+	--color-text: var(--color-text);
+	--color-text-muted: var(--color-text-secondary);
+	--color-accent: var(--color-accent);
+	--color-accent-hover: var(--color-accent-hover);
+	
+	--spacing-1: var(--spacing-1);
+}
+
+@layer components {
+	.panel {
+		@apply bg-secondary p-2 rounded border border-border;
+	}
+	
+	.panel-primary {
+		@apply bg-primary p-4 rounded border border-border;
+	}
 }

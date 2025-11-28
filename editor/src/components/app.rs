@@ -2,15 +2,16 @@ use std::sync::{Arc, RwLock};
 
 use dioxus::{core::Element, desktop::wry::dpi::PhysicalPosition, prelude::*};
 
-use crate::{
-	components::EditorLayout, editor::get_window_position, panel::PanelsManager, EditorContext, PluginRegistry, PluginsManager,
-};
+use crate::{components::EditorLayout, editor::get_window_position, init_theme, EditorContext, PluginRegistry, PluginsManager};
 
 #[component]
 pub fn App() -> Element {
 	let state = use_context::<Arc<RwLock<EditorContext>>>();
 	let plugins_registry = use_context::<Arc<PluginRegistry>>();
 	use_context_provider(|| Signal::new(Into::<PluginsManager>::into(plugins_registry.as_ref())));
+
+	// Initialize theme
+	init_theme();
 
 	// Create panels signal and provide it to children
 	// let initial_panels = state.read().map(|s| s.panels.clone()).unwrap_or_default();
