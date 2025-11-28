@@ -9,49 +9,14 @@ pub fn EditorLayout() -> Element {
 	let plugins_registry = use_context::<Arc<PluginRegistry>>();
 	let pm = use_context::<Signal<PluginsManager>>();
 
-	let mut panels_manager: Signal<PanelsManager> = use_context_provider(|| Signal::new(PanelsManager::default()));
+	// Provide panels signal to children
+	let mut panels_manager = use_context_provider(|| Signal::new(PanelsManager::default()));
 
-	// Rebuild panels when plugin states change
+	// Auto-rebuild panels when plugin states change
 	use_effect(move || {
-		pm.read(); // Subscribe to changes
-
-		let mut new_panels = PanelsManager::default();
-		pm.read()
-			.plugins
-			.iter()
-			.filter(|(_, plugin_state)| plugin_state.enabled)
-			.for_each(|(typeid, plugin_state)| {
-				let plugin = plugins_registry.plugins.get(typeid).unwrap();
-				// Register panels
-				for panel_cfg in plugin.get_panels() {
-					let panel_state = PanelState {
-						name: panel_cfg.name,
-						alignment: panel_cfg.alignment,
-						display_mode: panel_cfg.display_mode,
-						..Default::default()
-					};
-					new_panels.add_panel(panel_state);
-				}
-				for tool in plugin.get_tools() {
-					println!("🔧 Processing tool '{}' from plugin '{}'", tool.name, plugin.get_name());
-					match tool.placement {
-						tool::ToolPlacement::PanelByName(ref panel_name) => {
-							if let Some(panel) = new_panels.get_panel_by_name(&panel_name) {
-								println!("  ✓ Added tool '{}' to panel '{}'", tool.name, panel_name);
-								panel.tools.push(tool);
-							} else {
-								println!("  ⚠️ Warning: Panel '{}' not found for tool '{}'", panel_name, tool.name);
-							}
-						}
-						tool::ToolPlacement::PanelByAlignment(_alignment) => {
-							todo!()
-						}
-						tool::ToolPlacement::OwnPanel(_panel_config) => todo!(),
-					}
-				}
-			});
-		println!("✓ PanelsManager rebuilt with {:?} panels", new_panels.panels.len());
-		panels_manager.set(new_panels);
+		let panels = PanelsManager::from_plugins(&plugins_registry, &pm.read());
+		println!("✓ PanelsManager rebuilt with {:?} panels", panels.panels.len());
+		panels_manager.set(panels);
 	});
 	let mut top_panels = vec![];
 	let mut bottom_panels = vec![];

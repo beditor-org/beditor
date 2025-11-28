@@ -378,6 +378,7 @@ dependencies = [
  "bridge",
  "dioxus 0.7.1",
  "dioxus-free-icons",
+ "lucide-dioxus",
  "raw-window-handle 0.6.2",
  "serde",
  "serde_json",
@@ -4101,6 +4102,15 @@ name = "longest-increasing-subsequence"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3bd0dd2cd90571056fdb71f6275fada10131182f84899f4b2a916e565d81d86"
+
+[[package]]
+name = "lucide-dioxus"
+version = "2.44.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d08b978818a02150fa1e92ba44e782fc14411d4369a200098d468d74c36dcdc"
+dependencies = [
+ "dioxus 0.7.1",
+]
 
 [[package]]
 name = "mac"

@@ -18,7 +18,7 @@ async fn main() -> Result<()> {
 
 	let window = dioxus::desktop::WindowBuilder::new()
 		.with_title(config.top_bar.title.to_string())
-		.with_decorations(true)
+		.with_decorations(false)
 		.with_resizable(true);
 	let window_cfg = dioxus::desktop::Config::new().with_window(window);
 

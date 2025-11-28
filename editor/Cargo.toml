@@ -32,3 +32,4 @@ x11.workspace = true
 # Bridge dependency
 bridge = { path = "../bridge" }
 strum = { workspace = true, features = ["derive"] }
+lucide-dioxus = { version = "2.44.0", features = ["all-icons"] }

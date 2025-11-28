@@ -12,12 +12,15 @@ pub fn Panel(panel: PanelState) -> Element {
 
 #[component]
 pub fn StackedPanel(panel: PanelState) -> Element {
-	rsx!(for tool in panel.tools.iter() {
+	rsx! {
 		div{
 			class: "grow bg-red-100",
-			"stacked" {(tool.component)()}
+			for tool in panel.tools.iter() {
+				 {(tool.component)()}
+
+			}
 		}
-	})
+	}
 }
 
 #[component]

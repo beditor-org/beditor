@@ -1,5 +1,5 @@
 use crate::{
-	plugins::core::{MenuBar, StatusBar},
+	plugins::core::{StatusBar, TopBar},
 	tool::ToolPlacement,
 	PanelConfig, PanelDisplayMode, Plugin, Tool,
 };
@@ -48,7 +48,7 @@ impl Plugin for CorePlugin {
 			Tool {
 				placement: ToolPlacement::PanelByName(CorePluginPanel::TopBar.to_string()),
 				name: "Main menu".to_string(),
-				component: MenuBar,
+				component: TopBar,
 			},
 		]
 	}
