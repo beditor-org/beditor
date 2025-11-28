@@ -9,6 +9,7 @@ pub fn MenuBar() -> Element {
 	let plugins_registry = use_context::<Arc<PluginRegistry>>();
 	let mut panels_manager = use_context::<Signal<PanelsManager>>();
 	let mut plugins_manager = use_context::<Signal<PluginsManager>>();
+	println!("plugins: {}", plugins_manager.read().plugins.len());
 	rsx! {
 		div { class: "flex flex-row h-8",
 			// File menu
