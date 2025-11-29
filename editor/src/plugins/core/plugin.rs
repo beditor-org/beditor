@@ -1,7 +1,7 @@
 use crate::{
 	plugins::core::{StatusBar, TopBar},
 	tool::ToolPlacement,
-	PanelConfig, PanelDisplayMode, Plugin, Tool,
+	PanelConfig, PanelDisplayMode, Plugin, Tool, ToolAlignment,
 };
 use strum::Display;
 
@@ -44,11 +44,13 @@ impl Plugin for CorePlugin {
 				placement: ToolPlacement::PanelByName(CorePluginPanel::StatusBar.to_string()),
 				name: "Status bar".to_string(),
 				component: StatusBar,
+				alignment: ToolAlignment::default(),
 			},
 			Tool {
 				placement: ToolPlacement::PanelByName(CorePluginPanel::TopBar.to_string()),
 				name: "Main menu".to_string(),
 				component: TopBar,
+				alignment: ToolAlignment::default(),
 			},
 		]
 	}

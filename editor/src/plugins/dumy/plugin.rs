@@ -3,7 +3,7 @@ use strum::Display;
 use crate::{
 	plugins::{core::CorePluginPanel, dumy::dumy::Dumy, CorePlugin},
 	tool::ToolPlacement,
-	PanelConfig, PanelDisplayMode, Plugin, Tool,
+	PanelConfig, PanelDisplayMode, Plugin, Tool, ToolAlignment,
 };
 
 #[derive(Display)]
@@ -38,11 +38,13 @@ impl Plugin for DumyPlugin {
 				placement: ToolPlacement::PanelByName(DumyPluginPanel::LeftBar.to_string()),
 				name: "Dumy tool".to_string(),
 				component: Dumy,
+				alignment: ToolAlignment::default(),
 			},
 			Tool {
 				placement: ToolPlacement::PanelByName(CorePluginPanel::StatusBar.to_string()),
 				name: "Dumy tool".to_string(),
 				component: Dumy,
+				alignment: ToolAlignment::End,
 			},
 		]
 	}

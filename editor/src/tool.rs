@@ -10,9 +10,19 @@ pub enum ToolPlacement {
 	                                 // NoUI,                            // No UI component (background service)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum ToolAlignment {
+	#[default]
+	Start,
+	Center,
+	End,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Tool {
 	pub placement: ToolPlacement,
 	pub name: String,
 	pub component: fn() -> Element,
+	/// Only work in Stacked panels
+	pub alignment: ToolAlignment,
 }
