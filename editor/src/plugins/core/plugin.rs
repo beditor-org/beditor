@@ -1,5 +1,8 @@
 use crate::{
-	plugins::core::{StatusBar, TopBar},
+	plugins::core::{
+		top_bar::{Logo, MenuBar, WindowControls},
+		StatusBar,
+	},
 	tool::ToolPlacement,
 	PanelConfig, PanelDisplayMode, Plugin, Tool, ToolAlignment,
 };
@@ -48,9 +51,21 @@ impl Plugin for CorePlugin {
 			},
 			Tool {
 				placement: ToolPlacement::PanelByName(CorePluginPanel::TopBar.to_string()),
-				name: "Main menu".to_string(),
-				component: TopBar,
+				name: "Logo".to_string(),
+				component: Logo,
 				alignment: ToolAlignment::default(),
+			},
+			Tool {
+				placement: ToolPlacement::PanelByName(CorePluginPanel::TopBar.to_string()),
+				name: "Main menu".to_string(),
+				component: MenuBar,
+				alignment: ToolAlignment::default(),
+			},
+			Tool {
+				placement: ToolPlacement::PanelByName(CorePluginPanel::TopBar.to_string()),
+				name: "Window controls".to_string(),
+				component: WindowControls,
+				alignment: ToolAlignment::End,
 			},
 		]
 	}

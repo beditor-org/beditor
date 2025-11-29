@@ -100,13 +100,17 @@ fn MenuDropdown(label: String, children: Element) -> Element {
 
 #[component]
 pub fn TopBar() -> Element {
+	use super::{Logo, WindowControls};
+	use crate::components::ThemeToggle;
+
 	rsx! {
 		div {
-			class: "top-bar",
+			class: "flex flex-row items-center h-8 overflow-hidden",
+			Logo {}
 			MenuBar {}
-		}
-		button {
-			"close"
+			div { class: "flex-1" }
+			ThemeToggle {}
+			WindowControls {}
 		}
 	}
 }

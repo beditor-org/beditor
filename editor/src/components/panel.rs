@@ -31,10 +31,12 @@ pub fn StackedPanel(panel: PanelState) -> Element {
 		div {
 			class: "grow panel flex flex-row",
 			// Start-aligned tools
-			div {
-				class: "flex flex-row gap-2",
-				for tool in start_tools {
-					{(tool.component)()}
+			if !start_tools.is_empty() {
+				div {
+					class: "flex flex-row gap-2",
+					for tool in start_tools {
+						{(tool.component)()}
+					}
 				}
 			}
 			// Center-aligned tools
