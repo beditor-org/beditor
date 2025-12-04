@@ -10,6 +10,8 @@ use bevy::{
 };
 use clap::Parser;
 
+use crate::frame_capture::FrameCapturePlugin;
+
 /// Marker component from camera to render game to editor viewport
 #[derive(Component)]
 pub struct EditorCamera;
@@ -81,6 +83,7 @@ impl EditorApp for App {
 				// Run 60 times per second.
 				Duration::from_secs_f64(1.0 / 60.0),
 			))
+			.add_plugins(FrameCapturePlugin)
 			.add_systems(PostStartup, setup_editor_camera);
 		self
 	}

@@ -1,0 +1,381 @@
+use bevy::{
+	camera::RenderTarget,
+	prelude::*,
+	render::{
+		render_asset::RenderAssets,
+		render_graph::{self, NodeRunError, RenderGraphContext, RenderLabel},
+		render_resource::{
+			Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, TexelCopyBufferInfo,
+			TexelCopyBufferLayout,
+		},
+		renderer::{RenderContext, RenderDevice, RenderQueue},
+		texture::GpuImage,
+		Extract, RenderApp,
+	},
+};
+use crossbeam_channel::{Receiver, Sender};
+use std::sync::{atomic::AtomicBool, Arc};
+
+// ============================================================================
+// RESOURCES - for communication between Main World and Render World
+// ============================================================================
+
+/// Receiver in Main World - receives data from Render World
+/// This channel allows async frame data transfer between threads
+#[derive(Resource, Deref)]
+pub struct MainWorldReceiver(Receiver<Vec<u8>>);
+
+/// Sender in Render World - sends data to Main World
+/// Clone of this sender will be used in render systems to send frames
+#[derive(Resource, Deref)]
+pub struct RenderWorldSender(Sender<Vec<u8>>);
+
+// ============================================================================
+// PLUGIN - entry point for the entire capture system
+// ============================================================================
+
+pub struct FrameCapturePlugin;
+
+impl Plugin for FrameCapturePlugin {
+	fn build(&self, app: &mut App) {
+		// Create unbounded channel (no queue size limit)
+		let (sender, receiver) = crossbeam_channel::unbounded();
+
+		// Main World: add receiver and save system
+		app.insert_resource(MainWorldReceiver(receiver))
+			.add_systems(First, setup_cpu_image)
+			.add_systems(Last, save_captured_frames);
+
+		// Render World: setup entire render pipeline
+		let render_app = app.sub_app_mut(RenderApp);
+
+		// Add sender to Render World
+		render_app.insert_resource(RenderWorldSender(sender));
+
+		// Extract system (Main → Render copy)
+		render_app.add_systems(bevy::render::ExtractSchedule, extract_image_copiers);
+
+		// System for reading from buffer (after rendering)
+		render_app.add_systems(
+			bevy::render::Render,
+			receive_image_from_buffer.after(bevy::render::RenderSystems::Render),
+		);
+
+		// Add node to RenderGraph
+		let mut render_graph = render_app
+			.world_mut()
+			.resource_mut::<bevy::render::render_graph::RenderGraph>();
+		render_graph.add_node(ImageCopyLabel, ImageCopyDriver);
+		render_graph.add_node_edge(bevy::render::graph::CameraDriverLabel, ImageCopyLabel);
+
+		eprintln!("✅ FrameCapturePlugin initialized");
+	}
+}
+
+/// Creates CPU-side Image for saving frames (runs once)
+fn setup_cpu_image(mut commands: Commands, mut images: ResMut<Assets<Image>>, existing: Query<&ImageToSave>) {
+	if !existing.is_empty() {
+		return; // Already created
+	}
+	let cpu_image = Image::new_target_texture(640, 480, bevy::render::render_resource::TextureFormat::bevy_default());
+	let handle = images.add(cpu_image);
+	commands.spawn(ImageToSave(handle));
+	eprintln!("🖼️  CPU image for saving created");
+}
+
+// ============================================================================
+// COMPONENTS - components that live on entities
+// ============================================================================
+
+/// Component that holds GPU buffer for texture copying
+/// Spawned on entity together with render target image handle
+#[derive(Component, Clone)]
+pub struct ImageCopier {
+	/// GPU buffer where we copy texture to (has BufferUsages::MAP_READ)
+	pub buffer: Buffer,
+	/// Handle to render target Image (source of copy)
+	pub src_image: Handle<Image>,
+	/// Whether this copier is active (can be disabled)
+	pub enabled: Arc<AtomicBool>,
+}
+
+impl ImageCopier {
+	/// Creates new ImageCopier with GPU buffer
+	pub fn new(src_image: Handle<Image>, size: Extent3d, render_device: &RenderDevice) -> Self {
+		// Calculate padded bytes per row (GPU requires 256-byte alignment)
+		// Formula: align_to_256(width * 4 bytes_per_pixel)
+		let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row((size.width as usize) * 4);
+
+		// Create GPU buffer of sufficient size
+		let cpu_buffer = render_device.create_buffer(&BufferDescriptor {
+			label: Some("editor_frame_capture_buffer"),
+			size: (padded_bytes_per_row * size.height as usize) as u64,
+			// MAP_READ - allows reading on CPU
+			// COPY_DST - allows copying here from texture
+			usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+			mapped_at_creation: false,
+		});
+
+		Self {
+			buffer: cpu_buffer,
+			src_image,
+			enabled: Arc::new(AtomicBool::new(true)),
+		}
+	}
+
+	/// Checks if copier is active
+	pub fn is_enabled(&self) -> bool {
+		self.enabled.load(std::sync::atomic::Ordering::Relaxed)
+	}
+}
+
+/// Marker component that points to Image handle for file saving
+/// This Image will be filled with data from GPU buffer
+#[derive(Component, Deref, DerefMut)]
+pub struct ImageToSave(pub Handle<Image>);
+
+/// Resource in Render World - aggregates all ImageCopiers for RenderGraph access
+/// Extract system collects all ImageCopiers from Main World and puts them in this Vec
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct ImageCopiers(pub Vec<ImageCopier>);
+
+// ============================================================================
+// EXTRACT SYSTEMS - copy data from Main World → Render World
+// ============================================================================
+
+/// Extract system that creates ImageCopier for EditorCamera and copies to Render World
+/// Runs every frame before rendering
+fn extract_image_copiers(
+	mut commands: Commands,
+	cameras: Extract<Query<&Camera, With<super::app::EditorCamera>>>,
+	render_device: Res<RenderDevice>,
+) {
+	let mut copiers = Vec::new();
+
+	// For each EditorCamera create ImageCopier
+	for camera in cameras.iter() {
+		let Camera {
+			target: RenderTarget::Image(img_target),
+			..
+		} = camera
+		else {
+			continue; // Skip cameras without Image target
+		};
+
+		let image_handle = img_target.handle.clone();
+		let size = Extent3d {
+			width: 640,
+			height: 480,
+			..Default::default()
+		};
+
+		// Create ImageCopier IN RENDER WORLD (RenderDevice is available here!)
+		let copier = ImageCopier::new(image_handle, size, &render_device);
+		copiers.push(copier);
+	}
+
+	// Insert as Resource in Render World
+	commands.insert_resource(ImageCopiers(copiers));
+}
+
+// ============================================================================
+// RENDER GRAPH NODE - executes GPU copy texture → buffer
+// ============================================================================
+
+/// Label for our render node in the graph
+#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+struct ImageCopyLabel;
+
+/// RenderGraph node that copies textures to buffers
+/// Runs after CameraDriver (after rendering all cameras)
+#[derive(Default)]
+struct ImageCopyDriver;
+
+impl render_graph::Node for ImageCopyDriver {
+	fn run(
+		&self,
+		_graph: &mut RenderGraphContext,
+		render_context: &mut RenderContext,
+		world: &World,
+	) -> Result<(), NodeRunError> {
+		// Get list of copiers from Resource
+		let Some(image_copiers) = world.get_resource::<ImageCopiers>() else {
+			return Ok(()); // No copiers - nothing to do
+		};
+
+		// Get access to GPU images (render targets)
+		let Some(gpu_images) = world.get_resource::<RenderAssets<GpuImage>>() else {
+			return Ok(());
+		};
+
+		// For each copier copy its texture to buffer
+		for image_copier in image_copiers.iter() {
+			if !image_copier.is_enabled() {
+				continue; // Skip disabled copiers
+			}
+
+			// Find GPU texture by handle
+			let Some(gpu_image) = gpu_images.get(&image_copier.src_image) else {
+				eprintln!("GPU image not found for handle");
+				continue;
+			};
+
+			// Create command encoder for GPU commands
+			let mut encoder = render_context
+				.render_device()
+				.create_command_encoder(&CommandEncoderDescriptor {
+					label: Some("image_copy_encoder"),
+				});
+
+			// Get texture format info (block size, dimensions)
+			let block_dimensions = gpu_image.texture_format.block_dimensions();
+			let block_size = gpu_image.texture_format.block_copy_size(None).unwrap_or(4);
+
+			// Calculate padded bytes per row (GPU requires alignment)
+			let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
+				(gpu_image.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
+			);
+
+			// MAIN COMMAND: copy texture → buffer
+			encoder.copy_texture_to_buffer(
+				// Source (render target texture)
+				gpu_image.texture.as_image_copy(),
+				// Destination (mappable buffer)
+				TexelCopyBufferInfo {
+					buffer: &image_copier.buffer,
+					layout: TexelCopyBufferLayout {
+						offset: 0,
+						bytes_per_row: Some(std::num::NonZero::<u32>::new(padded_bytes_per_row as u32).unwrap().into()),
+						rows_per_image: None,
+					},
+				},
+				// Size to copy (texture size)
+				gpu_image.size,
+			);
+
+			// Submit commands to GPU queue
+			let render_queue = world.get_resource::<RenderQueue>().unwrap();
+			render_queue.submit(std::iter::once(encoder.finish()));
+		}
+
+		Ok(())
+	}
+}
+
+// ============================================================================
+// RENDER SYSTEMS - systems in Render World
+// ============================================================================
+
+/// System that reads data from GPU buffer after copying
+/// Runs AFTER RenderGraph (after ImageCopyDriver)
+/// Sends data through channel to Main World
+fn receive_image_from_buffer(image_copiers: Res<ImageCopiers>, render_device: Res<RenderDevice>, sender: Res<RenderWorldSender>) {
+	for image_copier in image_copiers.iter() {
+		if !image_copier.is_enabled() {
+			continue;
+		}
+
+		// Get buffer slice (whole area)
+		let buffer_slice = image_copier.buffer.slice(..);
+
+		// Create channel for async callback
+		// map_async doesn't block - notifies through channel when ready
+		let (s, r) = crossbeam_channel::bounded(1);
+
+		// Request buffer access (mapping)
+		buffer_slice.map_async(bevy::render::render_resource::MapMode::Read, move |result| match result {
+			Ok(_) => s.send(()).expect("Failed to send map notification"),
+			Err(err) => panic!("Failed to map buffer: {err}"),
+		});
+
+		// Block until GPU finishes copying
+		// On native this blocks thread, on WebGPU - awaits
+		render_device
+			.poll(bevy::render::render_resource::PollType::Wait)
+			.expect("Failed to poll device");
+
+		// Wait for callback (buffer ready for reading)
+		r.recv().expect("Failed to receive map notification");
+
+		// READ DATA FROM GPU BUFFER → CPU Vec
+		let image_bytes = {
+			let data = buffer_slice.get_mapped_range();
+			data.to_vec() // Copy to owned Vec and drop data
+		}; // data dropped here
+
+		// Send to Main World through channel
+		// Ignore error if receiver already closed (app exit)
+		let _ = sender.send(image_bytes);
+
+		// Must unmap before next use
+		image_copier.buffer.unmap();
+	}
+}
+
+// ============================================================================
+// MAIN WORLD SYSTEMS - data processing and saving
+// ============================================================================
+
+/// System in Main World that receives data from Render World and saves to file
+/// Runs in Last schedule
+fn save_captured_frames(receiver: Res<MainWorldReceiver>, mut frame_counter: Local<u32>) {
+	// Use try_recv to not block (non-blocking)
+	// May have multiple frames in queue - take latest
+	let mut latest_frame: Option<Vec<u8>> = None;
+	while let Ok(data) = receiver.try_recv() {
+		latest_frame = Some(data);
+	}
+
+	let Some(image_data) = latest_frame else {
+		return; // No new frames
+	};
+
+	// Dimensions (hardcoded, same as during creation)
+	let width = 640u32;
+	let height = 480u32;
+	let row_bytes = width as usize * 4; // RGBA = 4 bytes per pixel
+	let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
+
+	// If there's padding - need to remove it
+	let actual_data: Vec<u8> = if row_bytes == aligned_row_bytes {
+		// No padding needed
+		image_data
+	} else {
+		// Has padding - remove from each row
+		image_data
+			.chunks(aligned_row_bytes)
+			.take(height as usize)
+			.flat_map(|row| &row[..row_bytes])
+			.copied()
+			.collect()
+	};
+
+	// Skip empty frames (first few while GPU hasn't finished rendering)
+	let non_zero_count = actual_data.iter().filter(|&&b| b != 0).count();
+	if non_zero_count == 0 {
+		return; // Skip empty frames
+	}
+
+	// Create Bevy Image from raw data (like in headless_renderer example)
+	let mut bevy_img = Image::new_target_texture(width, height, bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb);
+	bevy_img.data = Some(actual_data);
+
+	// Convert to DynamicImage for saving
+	let Ok(dynamic_img) = bevy_img.try_into_dynamic() else {
+		eprintln!("Failed to convert to dynamic image");
+		return;
+	};
+
+	// Create directory for saving
+	let save_dir = std::path::PathBuf::from("captured_frames");
+	if let Err(e) = std::fs::create_dir_all(&save_dir) {
+		eprintln!("Failed to create directory: {e}");
+		return;
+	}
+
+	// Save as PNG
+	let file_path = save_dir.join(format!("frame_{:04}.png", *frame_counter));
+	if dynamic_img.to_rgba8().save(&file_path).is_ok() {
+		*frame_counter += 1;
+	}
+}

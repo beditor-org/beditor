@@ -9,9 +9,9 @@ fn main() {
 		}),
 		..default()
 	}))
+	.with_editor_plugins()
 	.add_systems(Startup, setup_scene)
 	.add_systems(Update, rotate_cube)
-	.with_editor_plugins()
 	.run();
 }
 
