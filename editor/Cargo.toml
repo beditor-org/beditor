@@ -29,6 +29,9 @@ bevy.workspace = true
 # Platform-specific
 x11.workspace = true
 
+# Encoding
+base64.workspace = true
+
 # Bridge dependency
 bridge = { path = "../bridge" }
 strum = { workspace = true, features = ["derive"] }

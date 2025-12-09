@@ -18,9 +18,6 @@ anyhow.workspace = true
 # Bevy integration (for BRP types)
 bevy.workspace = true
 
-# IPC
-crossbeam-channel.workspace = true
-
 # Async
 tokio = { workspace = true, optional = true }
 
