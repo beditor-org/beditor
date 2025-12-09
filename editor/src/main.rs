@@ -1,4 +1,3 @@
-use anyhow::Result;
 use std::sync::{Arc, RwLock};
 
 use beditor::{
@@ -6,10 +5,9 @@ use beditor::{
 	plugins::{CorePlugin, DumyPlugin},
 	EditorConfig, EditorContext, PluginRegistry,
 };
-#[tokio::main]
-async fn main() -> Result<()> {
-	let config = EditorConfig::default();
 
+fn main() {
+	let config = EditorConfig::default();
 	let editor_state = EditorContext::default();
 
 	let mut registry = PluginRegistry::new();
@@ -20,6 +18,7 @@ async fn main() -> Result<()> {
 		.with_title(config.top_bar.title.to_string())
 		.with_decorations(false)
 		.with_resizable(true);
+
 	let window_cfg = dioxus::desktop::Config::new().with_window(window);
 
 	dioxus::LaunchBuilder::desktop()
@@ -27,6 +26,4 @@ async fn main() -> Result<()> {
 		.with_context(Arc::new(RwLock::new(editor_state)))
 		.with_context(Arc::new(registry))
 		.launch(App);
-
-	Ok(())
 }

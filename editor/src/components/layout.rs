@@ -2,7 +2,11 @@ use std::sync::Arc;
 
 use dioxus::prelude::*;
 
-use crate::{components::LayoutArea, panel::PanelsManager, tool, PanelAligment, PanelState, PluginRegistry, PluginsManager};
+use crate::{
+	components::{LayoutArea, Viewport},
+	panel::PanelsManager,
+	PanelAligment, PluginRegistry, PluginsManager,
+};
 
 #[component]
 pub fn EditorLayout() -> Element {
@@ -50,10 +54,7 @@ pub fn EditorLayout() -> Element {
 				div {
 					class: "flex flex-col grow-1 gap-1",
 					LayoutArea { panels: center_top_panels }
-					div{
-						class: "grow-1 panel",
-						"center panel"
-					}
+					Viewport {}
 					LayoutArea { panels: center_bottom_panels }
 				}
 				LayoutArea { panels: right_panels }
