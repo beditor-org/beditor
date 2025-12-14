@@ -38,6 +38,11 @@ impl Plugin for CorePlugin {
 				name: CorePluginPanel::TopBar.to_string(),
 				display_mode: PanelDisplayMode::Stacked,
 			},
+			PanelConfig {
+				alignment: crate::panel::PanelAligment::Left,
+				name: "Hierarchy".to_string(),
+				display_mode: PanelDisplayMode::Tabbed,
+			},
 		]
 	}
 
@@ -66,6 +71,12 @@ impl Plugin for CorePlugin {
 				name: "Window controls".to_string(),
 				component: WindowControls,
 				alignment: ToolAlignment::End,
+			},
+			Tool {
+				placement: ToolPlacement::PanelByName("Hierarchy".to_string()),
+				name: "Entities Hierarhy".to_string(),
+				component: crate::plugins::core::hierarchy::EntitiesHierarhy,
+				alignment: ToolAlignment::default(),
 			},
 		]
 	}

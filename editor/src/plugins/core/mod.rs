@@ -1,3 +1,4 @@
+mod hierarchy;
 mod plugin;
 mod status_bar;
 mod top_bar;

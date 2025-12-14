@@ -1,0 +1,10 @@
+[package]
+name = "ui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+dioxus.workspace = true
+dioxus-primitives = { git = "https://github.com/DioxusLabs/components" }

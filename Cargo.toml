@@ -1,5 +1,5 @@
 [workspace]
-members = ["editor", "bridge", "client"]
+members = ["editor", "bridge", "client", "ui"]
 default-members = ["editor"]
 resolver = "2"
 

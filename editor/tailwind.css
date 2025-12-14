@@ -4,3 +4,4 @@
 @import "./assets/themes/light.css";
 
 @source "./src/**/*.{rs,html,css}";
+@source "../ui/src/**/*.{rs,html,css}";

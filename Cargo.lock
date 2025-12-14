@@ -546,6 +546,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "base16"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d27c3610c36aee21ce8ac510e6224498de4228ad772a171ed65643a24693a5a8"
+
+[[package]]
 name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -567,6 +573,7 @@ dependencies = [
  "serde_json",
  "strum",
  "tokio",
+ "ui",
  "x11",
 ]
 
@@ -2798,6 +2805,7 @@ dependencies = [
  "dioxus-hooks 0.7.1",
  "dioxus-html 0.7.1",
  "dioxus-logger",
+ "dioxus-router",
  "dioxus-signals 0.7.1",
  "dioxus-stores",
  "dioxus-web",
@@ -2968,7 +2976,7 @@ dependencies = [
  "global-hotkey",
  "infer",
  "jni",
- "lazy-js-bundle",
+ "lazy-js-bundle 0.7.1",
  "libc",
  "muda",
  "ndk 0.9.0",
@@ -3038,7 +3046,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "generational-box 0.7.1",
- "lazy-js-bundle",
+ "lazy-js-bundle 0.7.1",
  "serde",
  "serde_json",
  "tracing",
@@ -3152,7 +3160,7 @@ dependencies = [
  "futures-util",
  "generational-box 0.7.1",
  "keyboard-types",
- "lazy-js-bundle",
+ "lazy-js-bundle 0.7.1",
  "rustversion",
  "serde",
  "serde_json",
@@ -3194,7 +3202,7 @@ dependencies = [
  "dioxus-core-types",
  "dioxus-html 0.7.1",
  "js-sys",
- "lazy-js-bundle",
+ "lazy-js-bundle 0.7.1",
  "rustc-hash 2.1.1",
  "serde",
  "sledgehammer_bindgen",
@@ -3214,6 +3222,54 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tracing-wasm",
+]
+
+[[package]]
+name = "dioxus-primitives"
+version = "0.0.1"
+source = "git+https://github.com/DioxusLabs/components#7e5862e574aeceb3a3a021d042c165a839f1860b"
+dependencies = [
+ "dioxus 0.7.1",
+ "dioxus-sdk-time",
+ "lazy-js-bundle 0.6.2",
+ "num-integer",
+ "time",
+ "tracing",
+]
+
+[[package]]
+name = "dioxus-router"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fdf1b95b7cafd07a2b39651ab2b146e4aa72acb0295cd52f422b7db5e2ab6eeb"
+dependencies = [
+ "dioxus-cli-config",
+ "dioxus-core 0.7.1",
+ "dioxus-core-macro 0.7.1",
+ "dioxus-history",
+ "dioxus-hooks 0.7.1",
+ "dioxus-html 0.7.1",
+ "dioxus-router-macro",
+ "dioxus-signals 0.7.1",
+ "percent-encoding",
+ "rustversion",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "dioxus-router-macro"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47340b339c2c3f042b190f541b7241e2547b2e703f813d34ea24b963330c6757"
+dependencies = [
+ "base16",
+ "digest",
+ "proc-macro2",
+ "quote",
+ "sha2",
+ "slab",
+ "syn 2.0.110",
 ]
 
 [[package]]
@@ -3241,6 +3297,18 @@ dependencies = [
  "proc-macro2-diagnostics",
  "quote",
  "syn 2.0.110",
+]
+
+[[package]]
+name = "dioxus-sdk-time"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80c25ae93a3f72e734873b97fbd09d9b1b6adff97205fb0ffd8543e3564fb78e"
+dependencies = [
+ "dioxus 0.7.1",
+ "futures",
+ "gloo-timers",
+ "tokio",
 ]
 
 [[package]]
@@ -3318,7 +3386,7 @@ dependencies = [
  "generational-box 0.7.1",
  "gloo-timers",
  "js-sys",
- "lazy-js-bundle",
+ "lazy-js-bundle 0.7.1",
  "rustc-hash 2.1.1",
  "send_wrapper",
  "serde",
@@ -3842,12 +3910,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "futures"
+version = "0.3.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65bc07b1a8bc7c85c5f2e110c476c7389b4554ba72af57d8445ea63a576b0876"
+dependencies = [
+ "futures-channel",
+ "futures-core",
+ "futures-executor",
+ "futures-io",
+ "futures-sink",
+ "futures-task",
+ "futures-util",
+]
+
+[[package]]
 name = "futures-channel"
 version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dff15bf788c671c1934e366d07e30c1814a8ef514e1af724a602e8a2fbe1b10"
 dependencies = [
  "futures-core",
+ "futures-sink",
 ]
 
 [[package]]
@@ -3915,6 +3999,7 @@ version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fa08315bb612088cc391249efdc3bc77536f16c91f6cf495e6fbe85b20a4a81"
 dependencies = [
+ "futures-channel",
  "futures-core",
  "futures-io",
  "futures-macro",
@@ -5061,6 +5146,12 @@ dependencies = [
  "indexmap",
  "selectors",
 ]
+
+[[package]]
+name = "lazy-js-bundle"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e49596223b9d9d4947a14a25c142a6e7d8ab3f27eb3ade269d238bb8b5c267e2"
 
 [[package]]
 name = "lazy-js-bundle"
@@ -8436,6 +8527,14 @@ dependencies = [
  "memoffset",
  "tempfile",
  "winapi",
+]
+
+[[package]]
+name = "ui"
+version = "0.1.0"
+dependencies = [
+ "dioxus 0.7.1",
+ "dioxus-primitives",
 ]
 
 [[package]]
