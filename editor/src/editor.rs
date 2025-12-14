@@ -19,8 +19,59 @@ use std::process::{Command, Stdio};
 // 	}
 // }
 
+pub async fn get_window_position_js() -> Option<(i32, i32)> {
+	let js = r#"
+		dioxus.send({
+			x: window.screenX,
+			y: window.screenY
+		});
+	"#;
+
+	let mut eval = dioxus::document::eval(js);
+	if let Ok(result) = eval.recv::<serde_json::Value>().await {
+		if let (Some(x), Some(y)) = (
+			result.get("x").and_then(|v| v.as_i64()),
+			result.get("y").and_then(|v| v.as_i64()),
+		) {
+			return Some((x as i32, y as i32));
+		}
+	}
+	None
+}
+/// Gets the absolute screen position and size of the viewport element
+pub async fn get_viewport_screen_bounds() -> Option<(i32, i32, u32, u32)> {
+	let js = r#"
+		const viewport = document.getElementById('viewport');
+		if (!viewport) {
+			console.error('Viewport element not found');
+			return null;
+		}
+		
+		const rect = viewport.getBoundingClientRect();
+
+		dioxus.send({
+			x: Math.round(rect.left),
+			y: Math.round(rect.top),
+			width: Math.round(rect.width),
+			height: Math.round(rect.height)
+		});
+	"#;
+
+	let mut eval = dioxus::document::eval(js);
+	if let Ok(result) = eval.recv::<serde_json::Value>().await {
+		if let (Some(x), Some(y), Some(width), Some(height)) = (
+			result.get("x").and_then(|v| v.as_i64()),
+			result.get("y").and_then(|v| v.as_i64()),
+			result.get("width").and_then(|v| v.as_u64()),
+			result.get("height").and_then(|v| v.as_u64()),
+		) {
+			return Some((x as i32, y as i32, width as u32, height as u32));
+		}
+	}
+	None
+}
+
 pub fn spawn_game_process(
-	path: &str,
 	x: i32,
 	y: i32,
 	width: u32,
@@ -29,7 +80,7 @@ pub fn spawn_game_process(
 ) {
 	println!("🚀 Spawning borderless Bevy game window...");
 
-	let game_path = "../bevy_demo_game/target/debug/bevy_demo_game";
+	let game_path = "../bevy_demo_game/target/release/bevy_demo_game";
 
 	std::thread::spawn(move || {
 		match Command::new(game_path)
@@ -105,7 +156,6 @@ pub fn get_window_position(window: &dioxus::desktop::tao::window::Window) -> Opt
 			let handle = window.window_handle().ok()?;
 			let raw_handle = handle.as_raw();
 
-			// First try X11
 			if let RawWindowHandle::Xlib(xlib_handle) = raw_handle {
 				let display = xlib::XOpenDisplay(ptr::null());
 				if !display.is_null() {

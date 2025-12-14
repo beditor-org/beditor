@@ -318,7 +318,20 @@ fn receive_image_from_buffer(image_copiers: Res<ImageCopiers>, render_device: Re
 
 /// System in Main World that receives data from Render World and saves to file
 /// Runs in Last schedule
-fn save_captured_frames(receiver: Res<MainWorldReceiver>, mut frame_counter: Local<u32>) {
+fn save_captured_frames(
+	receiver: Res<MainWorldReceiver>,
+	mut frame_counter: Local<u32>,
+	mut last_frame_time: Local<Option<std::time::Instant>>,
+) {
+	// Throttle to ~60 FPS for output
+	let now = std::time::Instant::now();
+	if let Some(last_time) = *last_frame_time {
+		if now.duration_since(last_time).as_secs_f32() < 0.0167 {
+			// Skip this frame - too soon (60 FPS = ~16.67ms)
+			return;
+		}
+	}
+
 	// Use try_recv to not block (non-blocking)
 	// May have multiple frames in queue - take latest
 	let mut latest_frame: Option<Vec<u8>> = None;
@@ -329,6 +342,9 @@ fn save_captured_frames(receiver: Res<MainWorldReceiver>, mut frame_counter: Loc
 	let Some(image_data) = latest_frame else {
 		return; // No new frames
 	};
+
+	// Update last frame time
+	*last_frame_time = Some(now);
 
 	// Dimensions (hardcoded, same as during creation)
 	let width = 640u32;
@@ -366,16 +382,19 @@ fn save_captured_frames(receiver: Res<MainWorldReceiver>, mut frame_counter: Loc
 		return;
 	};
 
-	// Create directory for saving
-	let save_dir = std::path::PathBuf::from("captured_frames");
-	if let Err(e) = std::fs::create_dir_all(&save_dir) {
-		eprintln!("Failed to create directory: {e}");
+	// Convert to PNG bytes
+	let mut png_bytes = std::io::Cursor::new(Vec::new());
+	if let Err(e) = dynamic_img.write_to(&mut png_bytes, image::ImageFormat::Png) {
+		eprintln!("Failed to encode PNG: {e}");
 		return;
 	}
 
-	// Save as PNG
-	let file_path = save_dir.join(format!("frame_{:04}.png", *frame_counter));
-	if dynamic_img.to_rgba8().save(&file_path).is_ok() {
-		*frame_counter += 1;
-	}
+	// Encode to base64
+	use base64::{engine::general_purpose, Engine as _};
+	let base64_data = general_purpose::STANDARD.encode(png_bytes.into_inner());
+
+	// Output to stdout for editor to read
+	println!("FRAME: {}", base64_data);
+
+	*frame_counter += 1;
 }
