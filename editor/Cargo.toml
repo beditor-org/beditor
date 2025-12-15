@@ -33,7 +33,7 @@ x11.workspace = true
 base64.workspace = true
 
 strum = { workspace = true, features = ["derive"] }
-lucide-dioxus = { version = "2.44.0", features = ["all-icons"] }
+lucide-dioxus.workspace = true
 
 bridge = { path = "../bridge" }
 ui = { path = "../ui" }

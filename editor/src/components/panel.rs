@@ -66,7 +66,7 @@ pub fn TabbedPanel(panel: PanelState) -> Element {
 	rsx!(for tool in panel.tools.iter() {
 		div{
 			class: "grow panel",
-			"tabbed" {(tool.component)()}
+			{(tool.component)()}
 		}
 	})
 }

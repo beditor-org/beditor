@@ -13,6 +13,7 @@ license = "MIT OR Apache-2.0"
 # UI & Desktop
 dioxus = { version = "0.7", features = ["desktop"] }
 raw-window-handle = "0.6"
+lucide-dioxus = { version = "2.44.0", features = ["all-icons"] }
 
 # Async runtime
 tokio = { version = "1.48.0", features = ["full"] }

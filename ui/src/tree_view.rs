@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_primitives::collapsible::{Collapsible, CollapsibleContent, CollapsibleTrigger};
+use lucide_dioxus::{ChevronDown, ChevronRight};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TreeItem {
@@ -22,18 +23,30 @@ pub fn TreeView(items: Vec<TreeItem>) -> Element {
 #[component]
 fn TreeNode(item: TreeItem) -> Element {
 	let has_children = !item.children.is_empty();
+	let mut is_open = use_signal(|| false);
 
 	if has_children {
 		rsx! {
 			Collapsible {
+				open: is_open(),
+				on_open_change: move |open| {
+					is_open.set(open);
+				},
 				CollapsibleTrigger {
-					div { class: "tree-node-trigger",
+					div { class: "tree-node-trigger flex items-center gap-1",
+						span { class: "tree-node-icon",
+							if is_open() {
+								ChevronDown { size: 16 }
+							} else {
+								ChevronRight { size: 16 }
+							}
+						}
 						span { class: "tree-node-label", "{item.label}" }
 						span { class: "tree-node-id", "({item.id})" }
 					}
 				}
 				CollapsibleContent {
-					div { class: "pl-4",
+					div { class: "pl-4 ml-2 border-l border-border",
 						for child in item.children {
 							TreeNode { item: child.clone() }
 						}
