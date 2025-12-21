@@ -1,9 +1,13 @@
-use dioxus::prelude::spawn;
 use std::sync::Arc;
 
 use dioxus::{core::Element, prelude::*};
 
-use crate::{panel::PanelsManager, GameProcessManager, PluginRegistry, PluginsManager, ViewportProtocolState};
+use crate::{
+	event::{Events, OpenGameEvent},
+	panel::PanelsManager,
+	resource::ResourceRegistry,
+	PluginRegistry, PluginsManager,
+};
 
 #[component]
 pub fn MenuBar() -> Element {
@@ -11,7 +15,8 @@ pub fn MenuBar() -> Element {
 	let plugins_registry = use_context::<Arc<PluginRegistry>>();
 	let mut panels_manager = use_context::<Signal<PanelsManager>>();
 	let mut plugins_manager = use_context::<Signal<PluginsManager>>();
-	let mut state = use_context::<Signal<ViewportProtocolState>>();
+	let resources = use_context::<Arc<ResourceRegistry>>();
+	let events = resources.get::<Events>().unwrap();
 	println!("plugins: {}", plugins_manager.read().plugins.len());
 	rsx! {
 		div { class: "flex flex-row h-8",
@@ -25,32 +30,7 @@ pub fn MenuBar() -> Element {
 				div {
 					class: "px-3 py-1 cursor-pointer",
 					onclick: move |_| {
-						eprintln!("🔴 'Open' button clicked!");
-
-					let mut manager = GameProcessManager::new();
-					match manager.start("./target/release/examples/demo") {
-						Ok(rx) => {
-							eprintln!("✅ Game started, spawning frame listener");
-
-							// Bridge sync channel to async: blocking recv in thread -> async channel
-							let (tx, mut async_rx) = tokio::sync::mpsc::unbounded_channel();
-							std::thread::spawn(move || {
-								while let Ok(frame_bytes) = rx.recv() {
-									if tx.send(frame_bytes).is_err() {
-										break; // UI dropped receiver
-									}
-								}
-							});
-
-							// Non-blocking async loop
-							spawn(async move {
-								while let Some(frame_bytes) = async_rx.recv().await {
-									state.write().update_frame(frame_bytes);
-								}
-							});
-						}
-							Err(e) => eprintln!("❌ Failed to start game: {}", e),
-						}
+						events.publish(OpenGameEvent("./target/release/examples/demo".to_string()));
 					},
 					"Open"
 				}

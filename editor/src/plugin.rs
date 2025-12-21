@@ -2,7 +2,7 @@ use std::{any::TypeId, collections::HashMap};
 
 use dioxus::prelude::*;
 
-use crate::{PanelConfig, PanelState, Tool};
+use crate::{resource::ResourceRegistry, PanelConfig, Tool};
 
 pub trait Plugin {
 	fn get_name(&self) -> String;
@@ -13,8 +13,8 @@ pub trait Plugin {
 	fn get_panels(&self) -> Vec<PanelConfig> {
 		vec![]
 	}
-	fn on_load(&mut self) {}
-	fn on_unload(&mut self) {}
+	fn on_load(&mut self, _: ResourceRegistry) {}
+	fn on_unload(&mut self, _: ResourceRegistry) {}
 }
 
 pub struct PluginRegistry {

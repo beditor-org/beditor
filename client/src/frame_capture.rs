@@ -13,8 +13,41 @@ use bevy::{
 		Extract, RenderApp,
 	},
 };
+use bridge::protocol::frame_stream::FrameStreamProtocol;
 use crossbeam_channel::{Receiver, Sender};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::io::{self, Write};
 use std::sync::{atomic::AtomicBool, Arc};
+
+// ============================================================================
+// HELPER FUNCTIONS - for writing frames to multiplexer
+// ============================================================================
+
+/// Helper function to write a frame to stdout in multiplexer binary format.
+/// Format: [channel_id: u64 LE][length: u32 BE][payload]
+/// This is a temporary solution until full multiplexer integration.
+fn write_frame_to_multiplexer(data: &str) -> io::Result<()> {
+	let mut stdout = io::stdout().lock();
+
+	// Calculate channel_id the same way multiplexer does
+	// Use the actual FrameStreamProtocol type from bridge
+	let type_id = std::any::type_name::<FrameStreamProtocol>();
+	let mut hasher = DefaultHasher::new();
+	type_id.hash(&mut hasher);
+	let channel_id = hasher.finish();
+
+	let payload = data.as_bytes();
+	let length = payload.len() as u32;
+
+	// Write binary frame: [channel_id: u64 LE][length: u32 BE][payload]
+	stdout.write_all(&channel_id.to_le_bytes())?;
+	stdout.write_all(&length.to_be_bytes())?;
+	stdout.write_all(payload)?;
+	stdout.flush()?;
+
+	Ok(())
+}
 
 // ============================================================================
 // RESOURCES - for communication between Main World and Render World
@@ -325,12 +358,12 @@ fn save_captured_frames(
 ) {
 	// Throttle to ~60 FPS for output
 	let now = std::time::Instant::now();
-	if let Some(last_time) = *last_frame_time {
-		if now.duration_since(last_time).as_secs_f32() < 0.0167 {
-			// Skip this frame - too soon (60 FPS = ~16.67ms)
-			return;
-		}
-	}
+	// if let Some(last_time) = *last_frame_time {
+	// 	if now.duration_since(last_time).as_secs_f32() < 0.0167 {
+	// 		// Skip this frame - too soon (60 FPS = ~16.67ms)
+	// 		return;
+	// 	}
+	// }
 
 	// Use try_recv to not block (non-blocking)
 	// May have multiple frames in queue - take latest
@@ -393,8 +426,9 @@ fn save_captured_frames(
 	use base64::{engine::general_purpose, Engine as _};
 	let base64_data = general_purpose::STANDARD.encode(png_bytes.into_inner());
 
-	// Output to stdout for editor to read
-	println!("FRAME: {}", base64_data);
+	// Output to stdout in multiplexer binary format
+	// Ignore broken pipe - editor may not be reading
+	let _ = write_frame_to_multiplexer(&base64_data);
 
 	*frame_counter += 1;
 }

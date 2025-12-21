@@ -10,7 +10,7 @@ use bevy::{
 };
 use clap::Parser;
 
-use crate::frame_capture::FrameCapturePlugin;
+use crate::{frame_capture::FrameCapturePlugin, BrpProtocolPlugin};
 
 /// Marker component from camera to render game to editor viewport
 #[derive(Component)]
@@ -83,14 +83,13 @@ impl EditorApp for App {
 				// Run 60 times per second.
 				Duration::from_secs_f64(1.0 / 60.0),
 			))
-			.add_plugins(FrameCapturePlugin)
+			.add_plugins((FrameCapturePlugin, BrpProtocolPlugin))
 			.add_systems(PostStartup, setup_editor_camera);
 		self
 	}
 
 	fn with_default_plugins(&mut self, default_plugins: impl IntoEditorPluginGroup) -> &mut Self {
 		if self.is_editor_mode() {
-			print!("🚧 Running in Editor Mode 🚧\n");
 			self.add_plugins(
 				DefaultPlugins
 					.set(ImagePlugin::default_nearest())

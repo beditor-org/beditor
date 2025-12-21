@@ -2,15 +2,13 @@ use std::sync::Arc;
 
 use dioxus::{core::Element, prelude::*};
 
-use crate::{components::EditorLayout, init_theme, PluginRegistry, PluginsManager, ViewportProtocolState};
+use crate::{components::EditorLayout, init_theme, PluginRegistry, PluginsManager};
 
 #[component]
 pub fn App() -> Element {
 	let plugins_registry = use_context::<Arc<PluginRegistry>>();
 	use_context_provider(|| Signal::new(Into::<PluginsManager>::into(plugins_registry.as_ref())));
 
-	let protocol_state = ViewportProtocolState::new();
-	use_context_provider(|| Signal::new(Into::<ViewportProtocolState>::into(protocol_state)));
 	// Initialize theme
 	init_theme();
 

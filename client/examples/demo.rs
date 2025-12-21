@@ -2,13 +2,23 @@ use bevy::prelude::*;
 use client::{EditorApp, EditorCamera};
 fn main() {
 	let mut app = App::new();
-	app.with_default_plugins(DefaultPlugins.set(WindowPlugin {
-		primary_window: Some(Window {
-			title: "🎮 Game Viewport".to_string(),
-			..default()
-		}),
-		..default()
-	}))
+	app.with_default_plugins(
+		DefaultPlugins
+			.set(WindowPlugin {
+				primary_window: Some(Window {
+					title: "🎮 Game Viewport".to_string(),
+					..default()
+				}),
+				..default()
+			})
+			.set(bevy::log::LogPlugin {
+				// Disable all Bevy logs to prevent stdout pollution
+				// Only our eprintln! (stderr) and binary frames (stdout) will be output
+				level: bevy::log::Level::ERROR,
+				filter: "warn".to_string(),
+				..default()
+			}),
+	)
 	.with_editor_plugins()
 	.add_systems(Startup, setup_scene)
 	.add_systems(Update, rotate_cube)

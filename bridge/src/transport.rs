@@ -1,6 +1,5 @@
-// Transport layer abstractions
-// TODO: Move transport implementations here
+use std::sync::mpsc::Receiver;
 
-pub trait EditorTransport {
-	// Transport methods will be defined here
+pub trait Transport {
+	fn start(&mut self) -> Receiver<Vec<u8>>;
 }

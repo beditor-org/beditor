@@ -1,7 +1,18 @@
-// Protocol layer abstractions
-// TODO: Move protocol implementations here
+use std::io::Write;
 
-pub trait EditorProtocol {
-	// Protocol methods will be defined here
-	fn query_entities();
+use crate::{codec::Codec, connection::Connection};
+
+pub mod brp;
+pub mod frame_stream;
+pub trait Protocol {
+	type Codec: Codec;
+	type Writer: Write;
+
+	fn connection(&mut self) -> &mut Connection<Self::Codec, Self::Writer>;
+
+	fn send(&mut self, message: <Self::Codec as Codec>::Message) {
+		self.connection().send(message);
+	}
+
+	fn handle(&self, message: <Self::Codec as Codec>::Message) {}
 }

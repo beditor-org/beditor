@@ -1,15 +1,43 @@
-use std::sync::Arc;
+use std::sync::{atomic::Ordering, Arc, Mutex};
 
+use bridge::protocol::frame_stream::FrameStreamProtocol;
 use dioxus::prelude::*;
 
 use crate::{
 	components::{LayoutArea, Viewport},
 	panel::PanelsManager,
+	plugins::game_process::{GameProcessStartedEvent, RenderViewportEvent},
+	resource::ResourceRegistry,
 	PanelAligment, PluginRegistry, PluginsManager,
 };
 
+use crate::event::Events;
+use tokio::sync::mpsc::UnboundedReceiver;
+
 #[component]
 pub fn EditorLayout() -> Element {
+	let resources = use_context::<Arc<ResourceRegistry>>();
+	let events = resources.get::<Events>().unwrap();
+	let mut game_loaded = use_signal(|| false);
+
+	use_hook(|| {
+		let (tx, rx) = tokio::sync::watch::channel(false);
+
+		events.subscribe::<RenderViewportEvent>(move |_| {
+			info!("RenderViewportEvent in EditorLayout");
+			let _ = tx.send(true);
+		});
+
+		// Spawn async listener
+		let mut rx_clone = rx.clone();
+		spawn(async move {
+			while rx_clone.changed().await.is_ok() {
+				info!("setting game_loaded to true in EditorLayout");
+				game_loaded.set(*rx_clone.borrow());
+			}
+		});
+	});
+
 	let plugins_registry = use_context::<Arc<PluginRegistry>>();
 	let pm = use_context::<Signal<PluginsManager>>();
 
@@ -54,7 +82,9 @@ pub fn EditorLayout() -> Element {
 				div {
 					class: "flex flex-col grow-1 gap-1",
 					LayoutArea { panels: center_top_panels }
-					Viewport {}
+					if game_loaded() == true {
+						Viewport {}
+					}
 					LayoutArea { panels: center_bottom_panels }
 				}
 				LayoutArea { panels: right_panels }
