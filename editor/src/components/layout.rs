@@ -1,55 +1,25 @@
-use std::sync::{atomic::Ordering, Arc, Mutex};
-
-use bridge::protocol::frame_stream::FrameStreamProtocol;
 use dioxus::prelude::*;
 
 use crate::{
-	components::{LayoutArea, Viewport},
+	components::{panel::TabbedPanel, LayoutArea},
 	panel::PanelsManager,
-	plugins::game_process::{GameProcessStartedEvent, RenderViewportEvent},
-	resource::ResourceRegistry,
-	PanelAligment, PluginRegistry, PluginsManager,
+	plugin::PluginRegistry,
+	PanelSocket,
 };
-
-use crate::event::Events;
-use tokio::sync::mpsc::UnboundedReceiver;
-
 #[component]
 pub fn EditorLayout() -> Element {
-	let resources = use_context::<Arc<ResourceRegistry>>();
-	let events = resources.get::<Events>().unwrap();
-	let mut game_loaded = use_signal(|| false);
-
-	use_hook(|| {
-		let (tx, rx) = tokio::sync::watch::channel(false);
-
-		events.subscribe::<RenderViewportEvent>(move |_| {
-			info!("RenderViewportEvent in EditorLayout");
-			let _ = tx.send(true);
-		});
-
-		// Spawn async listener
-		let mut rx_clone = rx.clone();
-		spawn(async move {
-			while rx_clone.changed().await.is_ok() {
-				info!("setting game_loaded to true in EditorLayout");
-				game_loaded.set(*rx_clone.borrow());
-			}
-		});
-	});
-
-	let plugins_registry = use_context::<Arc<PluginRegistry>>();
-	let pm = use_context::<Signal<PluginsManager>>();
+	info!("rendering EditorLayout component");
+	let plugins = use_context::<Signal<PluginRegistry>>();
 
 	// Provide panels signal to children
 	let mut panels_manager = use_context_provider(|| Signal::new(PanelsManager::default()));
-
 	// Auto-rebuild panels when plugin states change
 	use_effect(move || {
-		let panels = PanelsManager::from_plugins(&plugins_registry, &pm.read());
-		println!("✓ PanelsManager rebuilt with {:?} panels", panels.panels.len());
+		let panels = PanelsManager::from_plugins(&plugins.read());
+		info!("✓ PanelsManager rebuilt with {:?} panels", panels.panels.len());
 		panels_manager.set(panels);
 	});
+
 	let mut top_panels = vec![];
 	let mut bottom_panels = vec![];
 	let mut left_panels = vec![];
@@ -63,14 +33,14 @@ pub fn EditorLayout() -> Element {
 		.clone()
 		.into_iter()
 		.filter(|pannel| pannel.is_visible)
-		.for_each(|pannel| match pannel.alignment {
-			PanelAligment::Top => top_panels.push(pannel),
-			PanelAligment::Bottom => bottom_panels.push(pannel),
-			PanelAligment::Left => left_panels.push(pannel),
-			PanelAligment::Right => right_panels.push(pannel),
-			PanelAligment::CenterTop => center_top_panels.push(pannel),
-			PanelAligment::CenterBottom => center_bottom_panels.push(pannel),
-			PanelAligment::Center => center_panel = Some(pannel),
+		.for_each(|pannel| match pannel.socket {
+			PanelSocket::Left => left_panels.push(pannel),
+			PanelSocket::Right => right_panels.push(pannel),
+			PanelSocket::Top => top_panels.push(pannel),
+			PanelSocket::Bottom => bottom_panels.push(pannel),
+			PanelSocket::CenterTop => center_top_panels.push(pannel),
+			PanelSocket::CenterBottom => center_bottom_panels.push(pannel),
+			PanelSocket::Center => center_panel = Some(pannel),
 		});
 	rsx! {
 		div {
@@ -82,8 +52,8 @@ pub fn EditorLayout() -> Element {
 				div {
 					class: "flex flex-col grow-1 gap-1",
 					LayoutArea { panels: center_top_panels }
-					if game_loaded() == true {
-						Viewport {}
+					if let Some(panel) = center_panel {
+						TabbedPanel { panel }
 					}
 					LayoutArea { panels: center_bottom_panels }
 				}

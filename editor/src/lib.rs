@@ -5,16 +5,13 @@ mod editor;
 pub mod event;
 mod game_process;
 mod panel;
-mod plugin;
-pub mod plugins;
-pub mod resource;
+pub mod plugin;
 mod theme;
 mod tool;
 
 pub use config::EditorConfig;
 pub use context::EditorContext;
 pub use game_process::GameProcessManager;
-pub use panel::{PanelAligment, PanelConfig, PanelDisplayMode, PanelState};
-pub use plugin::{Plugin, PluginRegistry, PluginState, PluginsManager};
+pub use panel::{PanelConfig, PanelDisplayMode, PanelSocket};
 pub use theme::{init_theme, use_theme, Theme};
 pub use tool::{Tool, ToolAlignment};

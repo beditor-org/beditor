@@ -1,5 +1,5 @@
 mod hierarchy;
-mod plugin;
+pub mod plugin;
 mod status_bar;
 mod top_bar;
 

@@ -2,46 +2,33 @@ use std::sync::{Arc, RwLock};
 
 use beditor::{
 	components::App,
-	event::Events,
-	plugins::{
-		game_process::GameProcessPlugin, transport::stdio::StdioTransportPlugin, viewport::plugin::ViewportPlugin, CorePlugin,
-		DumyPlugin,
+	plugin::{
+		core::plugin::core_plugin, dumy::plugin::dumy_plugin, game_process::game_process_plugin,
+		transport::stdio::stdio_transport_plugin, viewport::plugin::viewport_plugin, PluginBuilder,
 	},
-	resource::ResourceRegistry,
-	EditorConfig, EditorContext, PluginRegistry,
+	EditorConfig, EditorContext,
 };
-use tracing::info;
-
 fn main() {
 	let config = EditorConfig::default();
 	let editor_state = EditorContext::default();
 
-	let mut registry = PluginRegistry::new();
-	registry.register(CorePlugin);
-	registry.register(DumyPlugin);
-	registry.register(GameProcessPlugin);
-	registry.register(StdioTransportPlugin);
-	registry.register(ViewportPlugin);
-	let resources = ResourceRegistry::new();
-	let events = Events::new();
-	resources.register(events);
-	for (_type_id, plugin) in registry.plugins.iter_mut() {
-		info!("Loading plugin: {}", plugin.get_name());
-		plugin.on_load(resources.clone());
-	}
-	resources.get::<Events>().unwrap().publish(beditor::event::DumyEvent);
-
 	let window = dioxus::desktop::WindowBuilder::new()
-		.with_title(config.top_bar.title.to_string())
-		.with_decorations(false)
-		.with_resizable(true);
+		.with_title(config.window.title.to_string())
+		.with_decorations(config.window.decorations)
+		.with_resizable(config.window.resizable);
 
 	let window_cfg = dioxus::desktop::Config::new().with_window(window);
 
+	let plugins: Vec<PluginBuilder> = vec![
+		dumy_plugin,
+		core_plugin,
+		stdio_transport_plugin,
+		game_process_plugin,
+		viewport_plugin,
+	];
 	dioxus::LaunchBuilder::desktop()
 		.with_cfg(window_cfg)
 		.with_context(Arc::new(RwLock::new(editor_state)))
-		.with_context(Arc::new(registry))
-		.with_context(Arc::new(resources))
+		.with_context(plugins)
 		.launch(App);
 }

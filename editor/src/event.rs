@@ -1,7 +1,8 @@
 use std::{
 	any::{Any, TypeId},
+	cell::RefCell,
 	collections::HashMap,
-	sync::{Arc, RwLock},
+	rc::Rc,
 };
 
 pub struct DumyEvent;
@@ -9,17 +10,17 @@ pub struct OpenGameEvent(pub String);
 
 #[derive(Clone)]
 pub struct Events {
-	handlers: Arc<RwLock<HashMap<TypeId, Vec<Box<dyn Fn(&dyn Any) + Send + Sync>>>>>,
+	handlers: Rc<RefCell<HashMap<TypeId, Vec<Box<dyn FnMut(&dyn Any)>>>>>,
 }
 
 impl Events {
 	pub fn new() -> Self {
 		Self {
-			handlers: Arc::new(RwLock::new(HashMap::new())),
+			handlers: Rc::new(RefCell::new(HashMap::new())),
 		}
 	}
 
-	pub fn subscribe<E: 'static>(&self, handler: impl Fn(&E) + Send + Sync + 'static) {
+	pub fn subscribe<E: 'static>(&self, mut handler: impl FnMut(&E) + 'static) {
 		let type_id = TypeId::of::<E>();
 
 		let boxed_handler = Box::new(move |event: &dyn Any| {
@@ -28,15 +29,15 @@ impl Events {
 			}
 		});
 
-		let mut handlers = self.handlers.write().unwrap();
+		let mut handlers = self.handlers.borrow_mut();
 		handlers.entry(type_id).or_insert_with(Vec::new).push(boxed_handler);
 	}
 
 	pub fn publish<E: 'static>(&self, event: E) {
 		let type_id = TypeId::of::<E>();
 
-		let handlers = self.handlers.read().unwrap();
-		if let Some(event_handlers) = handlers.get(&type_id) {
+		let mut handlers = self.handlers.borrow_mut();
+		if let Some(event_handlers) = handlers.get_mut(&type_id) {
 			for handler in event_handlers {
 				handler(&event as &dyn Any);
 			}

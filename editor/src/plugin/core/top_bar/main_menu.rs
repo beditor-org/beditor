@@ -1,23 +1,17 @@
-use std::sync::Arc;
-
 use dioxus::{core::Element, prelude::*};
 
 use crate::{
 	event::{Events, OpenGameEvent},
 	panel::PanelsManager,
-	resource::ResourceRegistry,
-	PluginRegistry, PluginsManager,
+	plugin::PluginRegistry,
 };
 
 #[component]
 pub fn MenuBar() -> Element {
-	eprintln!("📋 MenuBar component rendering");
-	let plugins_registry = use_context::<Arc<PluginRegistry>>();
+	let plugins_registry = use_context::<Signal<PluginRegistry>>();
 	let mut panels_manager = use_context::<Signal<PanelsManager>>();
-	let mut plugins_manager = use_context::<Signal<PluginsManager>>();
-	let resources = use_context::<Arc<ResourceRegistry>>();
-	let events = resources.get::<Events>().unwrap();
-	println!("plugins: {}", plugins_manager.read().plugins.len());
+	let events = use_context::<Events>();
+	let plugins = plugins_registry.read().plugins.clone();
 	rsx! {
 		div { class: "flex flex-row h-8",
 			// File menu
@@ -39,19 +33,18 @@ pub fn MenuBar() -> Element {
 			// Panels menu
 			MenuDropdown { label: "Plugins",
 				{
-					plugins_manager.read().plugins.iter().map(|(typeid, state)| {
-						let typeid = *typeid;
-						let enabled = state.enabled;
-						let name = plugins_registry.plugins.get(&typeid).unwrap().get_name();
+
+					plugins.into_iter().map(|(plugin_name, plugin)| {
 						rsx! {
 							div {
-								key: "{typeid:?}",
+								key: "{plugin_name:?}",
 								class: "px-3 py-1 bg-red-100 cursor-pointer flex items-center justify-between",
 								onclick: move |_| {
-									plugins_manager.write().toggle(typeid);
+									// plugins_registry.write().toggle(plugin_name);
+									info!("Toggling plugin: {}", plugin_name);
 								},
-								span { "{name}" }
-								if enabled {
+								span { "{plugin_name}" }
+								if plugin.is_enabled {
 									span { class: "text-green-500 ml-2", "✓" }
 								}
 							}
@@ -61,24 +54,26 @@ pub fn MenuBar() -> Element {
 			}
 
 			MenuDropdown { label: "Panels",
-				for (idx, panel) in panels_manager.read().panels.iter().enumerate() {
-					 {
-					let name = panel.name.clone();
-					let is_visible = panel.is_visible;
-					rsx! {
+				{
+					panels_manager.read().panels.iter().enumerate().map(|(idx, panel)| {
+						let name = panel.name.clone();
+						let is_visible = panel.is_visible;
+						rsx! {
 							div {
-							key: "{idx}",
-							class: "px-3 py-1 bg-red-100 cursor-pointer flex items-center justify-between",
+								key: "{idx}",
+								class: "px-3 py-1 bg-red-100 cursor-pointer flex items-center justify-between",
 								onclick: move |_| {
-									panels_manager.write().panels[idx].toggle();
-								 },
+									info!("Toggling panel: {}", name);
+									let current = panels_manager.read().panels[idx].is_visible;
+									panels_manager.write().panels[idx].is_visible = !current;
+								},
 								span { "{name}" }
 								if is_visible {
 									span { class: "text-green-500 ml-2", "✓" }
 								}
 							}
-					}
-					}
+						}
+					})
 				}
 			}
 		}

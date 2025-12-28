@@ -1,24 +1,44 @@
-use std::{any::TypeId, collections::HashMap};
+pub mod core;
+pub mod dumy;
+pub mod game_process;
+pub mod transport;
+pub mod viewport;
+
+use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-use crate::{resource::ResourceRegistry, PanelConfig, Tool};
+use crate::{PanelConfig, Tool};
 
-pub trait Plugin {
-	fn get_name(&self) -> String;
-	fn get_description(&self) -> String;
-	fn get_tools(&self) -> Vec<Tool> {
-		vec![]
+pub type PluginComponent = fn() -> Element;
+
+#[derive(Clone, Default)]
+pub struct Plugin {
+	pub is_enabled: bool,
+	pub is_initialized: bool,
+	pub name: String,
+	pub entry: Option<PluginComponent>,
+	pub setup_context: Option<PluginComponent>,
+	pub description: String,
+	pub tools: Vec<Tool>,
+	pub panels: Vec<PanelConfig>,
+}
+impl Plugin {
+	pub fn with_panels(&mut self, panels: Vec<PanelConfig>) -> &mut Self {
+		self
 	}
-	fn get_panels(&self) -> Vec<PanelConfig> {
-		vec![]
+
+	pub fn with_tools(&mut self, tools: Vec<Tool>) -> &mut Self {
+		self.tools.extend(tools);
+		self
 	}
-	fn on_load(&mut self, _: ResourceRegistry) {}
-	fn on_unload(&mut self, _: ResourceRegistry) {}
 }
 
+pub type PluginBuilder = fn() -> Plugin;
+
+#[derive(Clone)]
 pub struct PluginRegistry {
-	pub plugins: HashMap<TypeId, Box<dyn Plugin + Send + Sync>>,
+	pub plugins: HashMap<String, Plugin>,
 }
 
 impl PluginRegistry {
@@ -26,54 +46,25 @@ impl PluginRegistry {
 		Self { plugins: HashMap::new() }
 	}
 
-	pub fn register<T: Plugin + 'static + Send + Sync>(&mut self, plugin: T) {
-		let type_id = TypeId::of::<T>();
-		self.plugins.insert(type_id, Box::new(plugin));
+	pub fn register(&mut self, plugin: Plugin) {
+		let plugin_name = plugin.name.clone();
+		match self.plugins.get(&plugin_name) {
+			Some(_) => warn!("PluginRegistry: Plugin with name '{plugin_name}' is already registered."),
+			None => {
+				self.plugins.insert(plugin_name.clone(), plugin);
+			}
+		};
 	}
 }
 
-#[derive(Clone)]
-pub struct PluginState {
-	pub enabled: bool,
-}
-
-impl PluginState {
-	pub fn toggle(&mut self) {
-		self.enabled = !self.enabled;
-	}
-}
-
-#[derive(Clone)]
-pub struct PluginsManager {
-	pub plugins: HashMap<TypeId, PluginState>,
-}
-
-impl From<&PluginRegistry> for PluginsManager {
-	fn from(registry: &PluginRegistry) -> Self {
-		Self {
-			plugins: HashMap::from_iter(
-				registry
-					.plugins
-					.iter()
-					.map(|(typeid, _)| (*typeid, PluginState { enabled: true })),
-			),
+impl From<Vec<PluginBuilder>> for PluginRegistry {
+	fn from(value: Vec<PluginBuilder>) -> Self {
+		let mut registry = Self::new();
+		for plugin_builder in value {
+			let mut plugin = plugin_builder();
+			plugin.is_enabled = true;
+			registry.register(plugin);
 		}
-	}
-}
-
-impl PluginsManager {
-	pub fn toggle(&mut self, type_id: TypeId) {
-		if let Some(state) = self.plugins.get_mut(&type_id) {
-			state.toggle();
-		}
-	}
-
-	pub fn enable<T: Plugin + 'static>(&mut self) {
-		let type_id = TypeId::of::<T>();
-		if let Some(state) = self.plugins.get_mut(&type_id) {
-			state.enabled = true;
-		} else {
-			warn!("⚠️ PluginManager: No state found for plugin {type_id:?}.");
-		}
+		registry
 	}
 }

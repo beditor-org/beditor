@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
 
-use crate::{PanelDisplayMode, PanelState};
+use crate::{PanelConfig, PanelDisplayMode};
 
 #[component]
-pub fn Panel(panel: PanelState) -> Element {
+pub fn Panel(panel: PanelConfig) -> Element {
 	match panel.display_mode {
 		PanelDisplayMode::Tabbed => rsx!(TabbedPanel { panel: panel.clone() }),
 		PanelDisplayMode::Stacked => rsx!(StackedPanel { panel: panel.clone() }),
@@ -11,7 +11,7 @@ pub fn Panel(panel: PanelState) -> Element {
 }
 
 #[component]
-pub fn StackedPanel(panel: PanelState) -> Element {
+pub fn StackedPanel(panel: PanelConfig) -> Element {
 	use crate::ToolAlignment;
 
 	let (start_tools, center_tools, end_tools): (Vec<_>, Vec<_>, Vec<_>) =
@@ -62,7 +62,7 @@ pub fn StackedPanel(panel: PanelState) -> Element {
 }
 
 #[component]
-pub fn TabbedPanel(panel: PanelState) -> Element {
+pub fn TabbedPanel(panel: PanelConfig) -> Element {
 	rsx!(for tool in panel.tools.iter() {
 		div{
 			class: "grow panel",
