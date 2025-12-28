@@ -14,6 +14,7 @@ path = "src/main.rs"
 dioxus.workspace = true
 dioxus-free-icons = { version = "0.8", features = ["font-awesome-solid"] }
 raw-window-handle.workspace = true
+bytesize = "1.3"
 
 # Async
 tokio.workspace = true

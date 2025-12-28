@@ -1,11 +1,16 @@
-use std::process::{ChildStdin, ChildStdout};
-
 use bridge::multiplexer::Multiplexer;
+use bytesize::ByteSize;
 use dioxus::prelude::*;
+use std::{
+	process::{ChildStdin, ChildStdout},
+	sync::atomic::Ordering,
+};
 
 use crate::{
 	event::Events,
-	plugin::{game_process::GameProcess, Plugin, PluginRegistry},
+	plugin::{core::CorePluginPanel, game_process::GameProcess, Plugin, PluginRegistry},
+	tool::ToolPlacement,
+	Tool, ToolAlignment,
 };
 
 pub struct StdioTransportReadyEvent;
@@ -19,6 +24,12 @@ pub fn stdio_transport_plugin() -> Plugin {
 		entry: Some(entry),
 		setup_context: Some(setup_context),
 		description: "Implements Stdio Transport".to_string(),
+		tools: vec![Tool {
+			placement: ToolPlacement::PanelByName(CorePluginPanel::StatusBar.to_string()),
+			name: "Dumy tool".to_string(),
+			component: counter,
+			alignment: ToolAlignment::End,
+		}],
 		..Default::default()
 	}
 }
@@ -68,4 +79,25 @@ fn entry() -> Element {
 	});
 
 	rsx!()
+}
+
+fn counter() -> Element {
+	let multiplexer = use_context::<Signal<Option<Multiplexer<ChildStdout, ChildStdin>>>>();
+	let stats = multiplexer.read().as_ref().map(|mux| {
+		(
+			mux.bytes_sent.load(Ordering::Relaxed),
+			mux.bytes_received.load(Ordering::Relaxed),
+		)
+	});
+
+	rsx! {
+		div {
+			if let Some((sent, received)) = stats {
+				"stdio: ↑ {ByteSize(sent)} | ↓ {ByteSize(received)}"
+			} else {
+				"stdio: Not connected"
+			}
+		}
+
+	}
 }

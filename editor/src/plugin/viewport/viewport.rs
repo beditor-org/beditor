@@ -38,6 +38,7 @@ pub fn Viewport() -> Element {
 			spawn(async move {
 				while rx.changed().await.is_ok() {
 					frame_clone.set(rx.borrow().clone());
+					viewport_state.write().frame_count += 1;
 				}
 			});
 		}

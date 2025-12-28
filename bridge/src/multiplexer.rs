@@ -3,6 +3,7 @@ use std::{
 	hash::{DefaultHasher, Hash, Hasher},
 	io::{BufReader, Read, Write},
 	sync::{
+		atomic::{AtomicU64, Ordering},
 		mpsc::{channel, Receiver, Sender},
 		Arc, Mutex, RwLock,
 	},
@@ -18,6 +19,8 @@ pub struct Multiplexer<R: Read + Send + 'static, W: Write + Send + 'static> {
 	writer: Arc<Mutex<W>>,
 	// u64 from type name hash - each protocol gets its own channel
 	channels: Arc<RwLock<HashMap<u64, Sender<Vec<u8>>>>>,
+	pub bytes_sent: Arc<AtomicU64>,
+	pub bytes_received: Arc<AtomicU64>,
 }
 
 impl<R: Read + Send + 'static, W: Write + Send + 'static> Multiplexer<R, W> {
@@ -26,6 +29,8 @@ impl<R: Read + Send + 'static, W: Write + Send + 'static> Multiplexer<R, W> {
 			reader: Some(reader),
 			writer: Arc::new(Mutex::new(writer)),
 			channels: Arc::new(RwLock::new(HashMap::new())),
+			bytes_sent: Arc::new(AtomicU64::new(0)),
+			bytes_received: Arc::new(AtomicU64::new(0)),
 		}
 	}
 
@@ -67,6 +72,7 @@ impl<R: Read + Send + 'static, W: Write + Send + 'static> Multiplexer<R, W> {
 	pub fn start(&mut self) {
 		let reader = self.reader.take().expect("Multiplexer already started");
 		let channels = Arc::clone(&self.channels);
+		let bytes_received = Arc::clone(&self.bytes_received); // ✅ Потрібен Arc!
 
 		std::thread::spawn(move || {
 			let reader_type = std::any::type_name::<R>().rsplit("::").next().unwrap_or("Unknown");
@@ -94,6 +100,7 @@ impl<R: Read + Send + 'static, W: Write + Send + 'static> Multiplexer<R, W> {
 
 				// Read payload
 				let mut payload = vec![0u8; length];
+				bytes_received.fetch_add(payload.len() as u64, Ordering::Relaxed);
 				if let Err(e) = reader.read_exact(&mut payload) {
 					error!("Payload read error: {}", e);
 					break;

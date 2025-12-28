@@ -8,10 +8,14 @@ use bridge::{
 };
 use tracing::info;
 
+use crate::plugin::core::CorePluginPanel;
+use crate::plugin::viewport::frame_counter::FrameCounter;
+use crate::tool::ToolPlacement;
 use crate::{
 	plugin::{viewport::viewport::Viewport, Plugin, PluginRegistry},
 	PanelConfig, PanelDisplayMode, PanelSocket,
 };
+use crate::{Tool, ToolAlignment};
 
 pub struct FrameCounterPlugin;
 pub struct ViewportPlugin;
@@ -19,6 +23,7 @@ const PLUGIN_NAME: &str = "Viewport Stream";
 
 pub struct ViewportState {
 	pub is_opened: bool,
+	pub frame_count: usize,
 }
 
 pub fn viewport_plugin() -> Plugin {
@@ -35,12 +40,23 @@ pub fn viewport_plugin() -> Plugin {
 		}
 		.with_tools(vec![("Viewport", Viewport, Default::default())])],
 		description: "Viewport plugin responsible for reading frames from the game process".to_string(),
+		tools: vec![Tool {
+			placement: ToolPlacement::PanelByName(CorePluginPanel::StatusBar.to_string()),
+			name: "Dumy tool".to_string(),
+			component: FrameCounter,
+			alignment: ToolAlignment::End,
+		}],
 		..Default::default()
 	}
 }
 
 fn setup_context() -> Element {
-	use_context_provider(|| Signal::new(ViewportState { is_opened: false }));
+	use_context_provider(|| {
+		Signal::new(ViewportState {
+			is_opened: false,
+			frame_count: 0,
+		})
+	});
 	use_context_provider(|| Signal::new(None::<Arc<Mutex<FrameStreamProtocol>>>));
 	rsx!()
 }

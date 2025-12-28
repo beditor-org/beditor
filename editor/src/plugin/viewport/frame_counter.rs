@@ -1,9 +1,12 @@
 use dioxus::prelude::*;
+
+use crate::plugin::viewport::plugin::ViewportState;
 #[component]
-pub fn StatusBar() -> Element {
+pub fn FrameCounter() -> Element {
+	let viewport_state = use_context::<Signal<ViewportState>>();
 	rsx! {
 		div {
-			"Beditor v0.1.0"
+			"Frame: {viewport_state.read().frame_count}"
 		}
 	}
 }
