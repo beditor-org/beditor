@@ -1,7 +1,6 @@
 pub mod components;
 mod config;
 mod context;
-mod editor;
 pub mod event;
 mod panel;
 pub mod plugin;
