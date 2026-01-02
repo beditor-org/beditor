@@ -16,7 +16,7 @@ pub fn Viewport() -> Element {
 		info!("Viewport component mounted, viewport opened");
 	});
 
-	let protocol = protocol_signal.clone();
+	let protocol = protocol_signal;
 	use_effect(move || {
 		if let Some(protocol_arc) = protocol.read().clone() {
 			info!("Starting frame receiver task");
@@ -34,7 +34,7 @@ pub fn Viewport() -> Element {
 				}
 			});
 
-			let mut frame_clone = frame.clone();
+			let mut frame_clone = frame;
 			spawn(async move {
 				while rx.changed().await.is_ok() {
 					frame_clone.set(rx.borrow().clone());

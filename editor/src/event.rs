@@ -13,6 +13,12 @@ pub struct Events {
 	handlers: Rc<RefCell<HashMap<TypeId, Vec<Box<dyn FnMut(&dyn Any)>>>>>,
 }
 
+impl Default for Events {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Events {
 	pub fn new() -> Self {
 		Self {
@@ -30,7 +36,7 @@ impl Events {
 		});
 
 		let mut handlers = self.handlers.borrow_mut();
-		handlers.entry(type_id).or_insert_with(Vec::new).push(boxed_handler);
+		handlers.entry(type_id).or_default().push(boxed_handler);
 	}
 
 	pub fn publish<E: 'static>(&self, event: E) {

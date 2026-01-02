@@ -22,7 +22,7 @@ impl WorkspaceRegistry {
 	}
 
 	pub fn set_current(&mut self, workspace_id: ResourceId) {
-		if let Some(_) = self.workspaces.get(&workspace_id) {
+		if self.workspaces.get(&workspace_id).is_some() {
 			self.current = Some(workspace_id.clone());
 			info!("Current workspace set to {}", workspace_id.as_str());
 		} else {

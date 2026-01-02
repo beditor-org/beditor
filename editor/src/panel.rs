@@ -70,11 +70,7 @@ pub struct PanelsManager {
 impl PanelsManager {
 	pub fn make_active_for_workspace(&mut self, workspace: &crate::workspace::Workspace) {
 		self.panels.iter_mut().for_each(|(id, panel)| {
-			if workspace.panels.contains(id) {
-				panel.is_active = true;
-			} else {
-				panel.is_active = false;
-			}
+			panel.is_active = workspace.panels.contains(id);
 		});
 	}
 
