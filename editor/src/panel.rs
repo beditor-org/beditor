@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::{
 	plugin::PluginRegistry,
@@ -8,7 +9,7 @@ use crate::{
 	ResourceId, ToolAlignment,
 };
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum SocketAlignment {
 	LeftToRight,
 	RightToLeft,
@@ -17,7 +18,7 @@ pub enum SocketAlignment {
 }
 pub type SocketsConfig = HashMap<PanelSocket, SocketAlignment>;
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum PanelSocket {
 	Left,
 	Right,

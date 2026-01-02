@@ -9,7 +9,7 @@ use editor::{
 	EditorConfig, EditorContext,
 };
 fn main() {
-	let config = EditorConfig::default();
+	let config = EditorConfig::load();
 	let editor_state = EditorContext::default();
 
 	let window = dioxus::desktop::WindowBuilder::new()
@@ -30,5 +30,6 @@ fn main() {
 		.with_cfg(window_cfg)
 		.with_context(Arc::new(RwLock::new(editor_state)))
 		.with_context(plugins)
+		.with_context(config)
 		.launch(App);
 }
