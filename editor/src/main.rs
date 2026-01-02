@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use beditor::{
+use editor::{
 	components::App,
 	plugin::{
 		core::plugin::core_plugin, dumy::plugin::dumy_plugin, game_process::game_process_plugin,

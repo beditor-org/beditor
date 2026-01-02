@@ -5,16 +5,20 @@ use crate::{
 	event::Events,
 	init_theme,
 	plugin::{Plugin, PluginRegistry},
+	workspace::WorkspaceRegistry,
 };
 
 #[component]
 pub fn App() -> Element {
 	info!("rendering App component");
 	let plugins = use_context::<Vec<fn() -> Plugin>>();
-
 	use_context_provider(Events::new);
 
 	let registry = use_context_provider(|| Signal::new(Into::<PluginRegistry>::into(plugins)));
+
+	// Initialize WorkspaceRegistry from plugins BEFORE calling entry() functions
+	let workspaces = WorkspaceRegistry::from_plugins(&registry.read());
+	use_context_provider(|| Signal::new(workspaces));
 
 	init_theme();
 

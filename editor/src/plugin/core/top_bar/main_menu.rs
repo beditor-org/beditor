@@ -4,12 +4,15 @@ use crate::{
 	event::{Events, OpenGameEvent},
 	panel::PanelsManager,
 	plugin::PluginRegistry,
+	workspace::WorkspaceRegistry,
+	ResourceId,
 };
 
 #[component]
 pub fn MenuBar() -> Element {
 	let plugins_registry = use_context::<Signal<PluginRegistry>>();
 	let mut panels_manager = use_context::<Signal<PanelsManager>>();
+	let mut wr = use_context::<Signal<WorkspaceRegistry>>();
 	let events = use_context::<Events>();
 	let plugins = plugins_registry.read().plugins.clone();
 	rsx! {
@@ -24,6 +27,7 @@ pub fn MenuBar() -> Element {
 				div {
 					class: "px-3 py-1 cursor-pointer",
 					onclick: move |_| {
+						wr.write().set_current(ResourceId::workspace("Core", "Editor"));
 						events.publish(OpenGameEvent("./target/release/examples/demo".to_string()));
 					},
 					"Open"
@@ -55,17 +59,20 @@ pub fn MenuBar() -> Element {
 
 			MenuDropdown { label: "Panels",
 				{
-					panels_manager.read().panels.iter().enumerate().map(|(idx, panel)| {
-						let name = panel.name.clone();
-						let is_visible = panel.is_visible;
+					let panels_list: Vec<_> = panels_manager.read().panels.iter().map(|(idx, panel)| {
+						(idx.clone(), panel.name.clone(), panel.is_visible)
+					}).collect();
+
+					panels_list.into_iter().map(|(idx, name, is_visible)| {
 						rsx! {
 							div {
 								key: "{idx}",
 								class: "px-3 py-1 bg-red-100 cursor-pointer flex items-center justify-between",
 								onclick: move |_| {
 									info!("Toggling panel: {}", name);
-									let current = panels_manager.read().panels[idx].is_visible;
-									panels_manager.write().panels[idx].is_visible = !current;
+									if let Some(panel) = panels_manager.write().panels.get_mut(&idx) {
+										panel.is_visible = !panel.is_visible;
+									}
 								},
 								span { "{name}" }
 								if is_visible {

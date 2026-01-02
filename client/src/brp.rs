@@ -55,6 +55,6 @@ mod tests {
 	#[test]
 	fn test_channel_id() {
 		let channel_id = Multiplexer::<std::io::Stdin, std::io::Stdout>::channel_id_for_type::<GameBrpProtocol>();
-		println!("BrpProtocol Channel ID: {:#018x}", channel_id);
+		eprintln!("BrpProtocol Channel ID: {:#018x}", channel_id);
 	}
 }

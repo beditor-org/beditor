@@ -1,10 +1,10 @@
 use dioxus::core::Element;
 
-use crate::{PanelConfig, PanelSocket};
+use crate::{PanelConfig, PanelSocket, ResourceId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ToolPlacement {
-	PanelByName(String),           // Place in specific panel by name
+	ByResourceId(ResourceId),      // Place in specific panel by resource id
 	PanelByAlignment(PanelSocket), // Place in any panel with this alignment
 	OwnPanel(PanelConfig),         // Create dedicated panel for this tool
 	                               // NoUI,                            // No UI component (background service)

@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-use crate::{PanelConfig, Tool};
+use crate::{workspace::Workspace, PanelConfig, Tool};
 
 pub type PluginComponent = fn() -> Element;
 
@@ -21,6 +21,7 @@ pub struct Plugin {
 	pub setup_context: Option<PluginComponent>,
 	pub description: String,
 	pub tools: Vec<Tool>,
+	pub workspaces: Vec<Workspace>,
 	pub panels: Vec<PanelConfig>,
 }
 impl Plugin {

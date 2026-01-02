@@ -37,6 +37,12 @@ fn write_frame_to_multiplexer(data: &str) -> io::Result<()> {
 	type_id.hash(&mut hasher);
 	let channel_id = hasher.finish();
 
+	// Debug: log channel_id once
+	static LOGGED: AtomicBool = AtomicBool::new(false);
+	if !LOGGED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+		eprintln!("🔧 Game sending frames on channel: {} (type: {})", channel_id, type_id);
+	}
+
 	let payload = data.as_bytes();
 	let length = payload.len() as u32;
 

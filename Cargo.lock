@@ -558,28 +558,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
-name = "beditor"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64",
- "bevy",
- "bridge",
- "bytesize",
- "dioxus 0.7.1",
- "dioxus-free-icons",
- "lucide-dioxus",
- "raw-window-handle 0.6.2",
- "serde",
- "serde_json",
- "strum",
- "tokio",
- "tracing",
- "ui",
- "x11",
-]
-
-[[package]]
 name = "bevy"
 version = "0.17.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3546,6 +3524,28 @@ name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
+
+[[package]]
+name = "editor"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64",
+ "bevy",
+ "bridge",
+ "bytesize",
+ "dioxus 0.7.1",
+ "dioxus-free-icons",
+ "lucide-dioxus",
+ "raw-window-handle 0.6.2",
+ "serde",
+ "serde_json",
+ "strum",
+ "tokio",
+ "tracing",
+ "ui",
+ "x11",
+]
 
 [[package]]
 name = "either"

@@ -8,7 +8,7 @@ use bridge::{
 };
 use tracing::info;
 
-use crate::plugin::core::CorePluginPanel;
+use crate::plugin::core::{CorePluginPanel, CoreWorkspace};
 use crate::plugin::viewport::frame_counter::FrameCounter;
 use crate::tool::ToolPlacement;
 use crate::{
@@ -19,7 +19,7 @@ use crate::{Tool, ToolAlignment};
 
 pub struct FrameCounterPlugin;
 pub struct ViewportPlugin;
-const PLUGIN_NAME: &str = "Viewport Stream";
+const PLUGIN_NAME: &str = "Viewport";
 
 pub struct ViewportState {
 	pub is_opened: bool,
@@ -37,12 +37,14 @@ pub fn viewport_plugin() -> Plugin {
 			display_mode: PanelDisplayMode::Tabbed,
 			is_visible: true,
 			tools: vec![],
+			is_active: false,
+			workspaces: vec![CoreWorkspace::Editor.id()],
 		}
 		.with_tools(vec![("Viewport", Viewport, Default::default())])],
 		description: "Viewport plugin responsible for reading frames from the game process".to_string(),
 		tools: vec![Tool {
-			placement: ToolPlacement::PanelByName(CorePluginPanel::StatusBar.to_string()),
-			name: "Dumy tool".to_string(),
+			placement: ToolPlacement::ByResourceId(CorePluginPanel::StatusBar.id()),
+			name: "Frame counter".to_string(),
 			component: FrameCounter,
 			alignment: ToolAlignment::End,
 		}],
@@ -65,16 +67,15 @@ fn entry() -> Element {
 	let mut registry = use_context::<Signal<PluginRegistry>>();
 	let mut multiplexer = use_context::<Signal<Option<Multiplexer<ChildStdout, ChildStdin>>>>();
 	let mut frame_stream = use_context::<Signal<Option<Arc<Mutex<FrameStreamProtocol>>>>>();
-	let viewport_state = use_context::<Signal<ViewportState>>();
 
+	// Register channel as soon as multiplexer is available, not waiting for viewport to open
 	use_effect(move || {
-		let is_opened = viewport_state.read().is_opened;
 		let has_mux = multiplexer.read().is_some();
 		let has_no_stream = frame_stream.read().is_none();
 
-		if is_opened && has_mux && has_no_stream {
+		if has_mux && has_no_stream {
 			if let Some(mux) = multiplexer.write().as_mut() {
-				info!("Connecting to stream");
+				info!("Registering FrameStream channel");
 				let connection = Connection::new(
 					Base64Codec,
 					mux.register_for_type::<FrameStreamProtocol>(),
@@ -84,6 +85,7 @@ fn entry() -> Element {
 			}
 		}
 	});
+
 	use_hook(|| {
 		registry.write().plugins.get_mut(PLUGIN_NAME).unwrap().is_initialized = true;
 		info!("{PLUGIN_NAME} plugin initialized!");

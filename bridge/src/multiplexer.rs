@@ -40,12 +40,16 @@ impl<R: Read + Send + 'static, W: Write + Send + 'static> Multiplexer<R, W> {
 		let type_name = std::any::type_name::<T>();
 		let mut hasher = DefaultHasher::new();
 		type_name.hash(&mut hasher);
-		hasher.finish()
+		let id = hasher.finish();
+		tracing::debug!("Channel ID for {}: {} (0x{:016x})", type_name, id, id);
+		id
 	}
 
 	/// Register a protocol channel using its type as the channel ID
 	pub fn register_for_type<T: 'static>(&self) -> Receiver<Vec<u8>> {
-		self.register_channel(Self::channel_id_for_type::<T>())
+		let channel_id = Self::channel_id_for_type::<T>();
+		tracing::info!("Registering channel for {}: {}", std::any::type_name::<T>(), channel_id);
+		self.register_channel(channel_id)
 	}
 
 	/// Get a writer for a protocol using its type as the channel ID
@@ -72,7 +76,7 @@ impl<R: Read + Send + 'static, W: Write + Send + 'static> Multiplexer<R, W> {
 	pub fn start(&mut self) {
 		let reader = self.reader.take().expect("Multiplexer already started");
 		let channels = Arc::clone(&self.channels);
-		let bytes_received = Arc::clone(&self.bytes_received); // ✅ Потрібен Arc!
+		let bytes_received = Arc::clone(&self.bytes_received); // Required for thread
 
 		std::thread::spawn(move || {
 			let reader_type = std::any::type_name::<R>().rsplit("::").next().unwrap_or("Unknown");

@@ -27,14 +27,15 @@ pub fn dumy_plugin() -> Plugin {
 			name: DumyPluginPanel::LeftBar.to_string(),
 			display_mode: PanelDisplayMode::Tabbed,
 			is_visible: true,
+			is_active: false,
 			tools: vec![],
+			workspaces: vec![],
 		}
 		.with_tools(vec![("Dumy tool", Dumy, ToolAlignment::default())])],
 
-		//	this tools does not use curent plugin panel and want to be placed in another plugin panel
+		// Tool placed in another plugin's panel (Core's status bar)
 		tools: vec![Tool {
-			//	TODO: maybe place reference to plugin panel by TypeId or something?
-			placement: ToolPlacement::PanelByName(CorePluginPanel::StatusBar.to_string()),
+			placement: ToolPlacement::ByResourceId(CorePluginPanel::StatusBar.id()),
 			name: "Dumy tool".to_string(),
 			component: Dumy,
 			alignment: ToolAlignment::End,

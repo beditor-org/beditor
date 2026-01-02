@@ -4,6 +4,7 @@ use crate::{
 	components::{panel::TabbedPanel, LayoutArea},
 	panel::PanelsManager,
 	plugin::PluginRegistry,
+	workspace::WorkspaceRegistry,
 	PanelSocket,
 };
 #[component]
@@ -12,13 +13,20 @@ pub fn EditorLayout() -> Element {
 	let plugins = use_context::<Signal<PluginRegistry>>();
 
 	// Provide panels signal to children
+	let workspaces_registry = use_context::<Signal<WorkspaceRegistry>>();
 	let mut panels_manager = use_context_provider(|| Signal::new(PanelsManager::default()));
-	// Auto-rebuild panels when plugin states change
-	use_effect(move || {
-		let panels = PanelsManager::from_plugins(&plugins.read());
-		info!("✓ PanelsManager rebuilt with {:?} panels", panels.panels.len());
-		panels_manager.set(panels);
-	});
+
+	// Get current workspace from registry
+	let current_workspace = {
+		let registry = workspaces_registry.read();
+		registry.get_current().expect("No current workspace found").clone()
+	};
+
+	// Rebuild panels and activate for current workspace
+	let mut panels = PanelsManager::from_plugins(&plugins.read());
+	panels.make_active_for_workspace(&current_workspace);
+	info!("✓ PanelsManager rebuilt with {:?} panels", panels.panels.len());
+	panels_manager.set(panels);
 
 	let mut top_panels = vec![];
 	let mut bottom_panels = vec![];
@@ -32,8 +40,8 @@ pub fn EditorLayout() -> Element {
 		.panels
 		.clone()
 		.into_iter()
-		.filter(|pannel| pannel.is_visible)
-		.for_each(|pannel| match pannel.socket {
+		.filter(|(_, pannel)| pannel.is_visible && pannel.is_active)
+		.for_each(|(_, pannel)| match pannel.socket {
 			PanelSocket::Left => left_panels.push(pannel),
 			PanelSocket::Right => right_panels.push(pannel),
 			PanelSocket::Top => top_panels.push(pannel),

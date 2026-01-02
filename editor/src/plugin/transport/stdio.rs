@@ -25,7 +25,7 @@ pub fn stdio_transport_plugin() -> Plugin {
 		setup_context: Some(setup_context),
 		description: "Implements Stdio Transport".to_string(),
 		tools: vec![Tool {
-			placement: ToolPlacement::PanelByName(CorePluginPanel::StatusBar.to_string()),
+			placement: ToolPlacement::ByResourceId(CorePluginPanel::StatusBar.id()),
 			name: "Dumy tool".to_string(),
 			component: counter,
 			alignment: ToolAlignment::End,
