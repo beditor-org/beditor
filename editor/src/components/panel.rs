@@ -34,8 +34,8 @@ pub fn StackedPanel(panel: PanelConfig) -> Element {
 			if !start_tools.is_empty() {
 				div {
 					class: "flex flex-row gap-2",
-					for tool in start_tools {
-						{(tool.component)()}
+					for (idx, tool) in start_tools.iter().enumerate() {
+						div { key: "{idx}", {(tool.component)()} }
 					}
 				}
 			}
@@ -43,8 +43,8 @@ pub fn StackedPanel(panel: PanelConfig) -> Element {
 			if !center_tools.is_empty() {
 				div {
 					class: "flex flex-row gap-2 mx-auto",
-					for tool in center_tools {
-						{(tool.component)()}
+					for (idx, tool) in center_tools.iter().enumerate() {
+						div { key: "{idx}", {(tool.component)()} }
 					}
 				}
 			}
@@ -52,8 +52,8 @@ pub fn StackedPanel(panel: PanelConfig) -> Element {
 			if !end_tools.is_empty() {
 				div {
 					class: "flex flex-row gap-2 ml-auto",
-					for tool in end_tools {
-						{(tool.component)()}
+					for (idx, tool) in end_tools.iter().enumerate() {
+						div { key: "{idx}", {(tool.component)()} }
 					}
 				}
 			}
@@ -63,8 +63,10 @@ pub fn StackedPanel(panel: PanelConfig) -> Element {
 
 #[component]
 pub fn TabbedPanel(panel: PanelConfig) -> Element {
-	rsx!(for tool in panel.tools.iter() {
-		div{
+	let tools = panel.tools.clone();
+	rsx!(for (idx, tool) in tools.iter().enumerate() {
+		div {
+			key: "{idx}",
 			class: "grow panel",
 			{(tool.component)()}
 		}

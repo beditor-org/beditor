@@ -5,8 +5,11 @@ use std::{
 	rc::Rc,
 };
 
+use crate::ResourceId;
+
 pub struct DumyEvent;
 pub struct OpenGameEvent(pub String);
+pub struct SwitchWorkspaceEvent(pub ResourceId);
 
 #[derive(Clone)]
 pub struct Events {
@@ -14,9 +17,9 @@ pub struct Events {
 }
 
 impl Default for Events {
-    fn default() -> Self {
-        Self::new()
-    }
+	fn default() -> Self {
+		Self::new()
+	}
 }
 
 impl Events {

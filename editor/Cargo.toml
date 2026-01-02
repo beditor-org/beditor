@@ -39,3 +39,4 @@ tracing.workspace = true
 
 bridge = { path = "../bridge" }
 ui = { path = "../ui" }
+rfd = {version="0.16.0", default-features = false, features = [ "xdg-portal", "tokio"]}

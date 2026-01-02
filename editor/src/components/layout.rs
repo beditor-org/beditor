@@ -16,17 +16,16 @@ pub fn EditorLayout() -> Element {
 	let workspaces_registry = use_context::<Signal<WorkspaceRegistry>>();
 	let mut panels_manager = use_context_provider(|| Signal::new(PanelsManager::default()));
 
-	// Get current workspace from registry
-	let current_workspace = {
+	// Rebuild panels when workspace changes
+	use_effect(move || {
 		let registry = workspaces_registry.read();
-		registry.get_current().expect("No current workspace found").clone()
-	};
+		let current_workspace = registry.get_current().expect("No current workspace found").clone();
 
-	// Rebuild panels and activate for current workspace
-	let mut panels = PanelsManager::from_plugins(&plugins.read());
-	panels.make_active_for_workspace(&current_workspace);
-	info!("✓ PanelsManager rebuilt with {:?} panels", panels.panels.len());
-	panels_manager.set(panels);
+		let mut panels = PanelsManager::from_plugins(&plugins.read());
+		panels.make_active_for_workspace(&current_workspace);
+		info!("✓ PanelsManager rebuilt with {:?} panels", panels.panels.len());
+		panels_manager.set(panels);
+	});
 
 	let mut top_panels = vec![];
 	let mut bottom_panels = vec![];
@@ -61,7 +60,7 @@ pub fn EditorLayout() -> Element {
 					class: "flex flex-col grow-1 gap-1",
 					LayoutArea { panels: center_top_panels }
 					if let Some(panel) = center_panel {
-						TabbedPanel { panel }
+						TabbedPanel { key: "{panel.name}", panel }
 					}
 					LayoutArea { panels: center_bottom_panels }
 				}

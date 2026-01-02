@@ -1,18 +1,11 @@
 use dioxus::{core::Element, prelude::*};
 
-use crate::{
-	event::{Events, OpenGameEvent},
-	panel::PanelsManager,
-	plugin::PluginRegistry,
-	workspace::WorkspaceRegistry,
-	ResourceId,
-};
+use crate::{editor::open_project_dialog, event::Events, panel::PanelsManager, plugin::PluginRegistry};
 
 #[component]
 pub fn MenuBar() -> Element {
 	let plugins_registry = use_context::<Signal<PluginRegistry>>();
 	let mut panels_manager = use_context::<Signal<PanelsManager>>();
-	let mut wr = use_context::<Signal<WorkspaceRegistry>>();
 	let events = use_context::<Events>();
 	let plugins = plugins_registry.read().plugins.clone();
 	rsx! {
@@ -26,10 +19,7 @@ pub fn MenuBar() -> Element {
 				}
 				div {
 					class: "px-3 py-1 cursor-pointer",
-					onclick: move |_| {
-						wr.write().set_current(ResourceId::workspace("Core", "Editor"));
-						events.publish(OpenGameEvent("./target/release/examples/demo".to_string()));
-					},
+					onclick: move |_| open_project_dialog	(events.clone()),
 					"Open"
 				}
 			}

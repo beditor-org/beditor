@@ -2,7 +2,7 @@ use dioxus::{core::Element, prelude::*};
 
 use crate::{
 	components::EditorLayout,
-	event::Events,
+	event::{Events, SwitchWorkspaceEvent},
 	init_theme,
 	plugin::{Plugin, PluginRegistry},
 	workspace::WorkspaceRegistry,
@@ -12,13 +12,22 @@ use crate::{
 pub fn App() -> Element {
 	info!("rendering App component");
 	let plugins = use_context::<Vec<fn() -> Plugin>>();
-	use_context_provider(Events::new);
+	let events = use_context_provider(Events::new);
 
 	let registry = use_context_provider(|| Signal::new(Into::<PluginRegistry>::into(plugins)));
 
 	// Initialize WorkspaceRegistry from plugins BEFORE calling entry() functions
 	let workspaces = WorkspaceRegistry::from_plugins(&registry.read());
-	use_context_provider(|| Signal::new(workspaces));
+	let mut workspace_registry = use_context_provider(|| Signal::new(workspaces));
+
+	// Subscribe to workspace switch events
+	use_effect(move || {
+		let events = events.clone();
+		let mut workspace_registry = workspace_registry.clone();
+		events.subscribe::<SwitchWorkspaceEvent>(move |event| {
+			workspace_registry.write().set_current(event.0.clone());
+		});
+	});
 
 	init_theme();
 
