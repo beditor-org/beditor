@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use dioxus::{core::use_drop, prelude::*};
 use std::{
 	cell::Cell,
 	process::{Child, ChildStdin, ChildStdout, Command, Stdio},
@@ -44,8 +44,27 @@ fn setup_context() -> Element {
 fn entry() -> Element {
 	let events = use_context::<Events>();
 	let mut registry = use_context::<Signal<PluginRegistry>>();
-	let mut game_process = use_context::<Signal<Option<GameProcess>>>();
-	let mut config = use_context::<Signal<EditorConfig>>();
+	let game_process = use_context::<Signal<Option<GameProcess>>>();
+	let config = use_context::<Signal<EditorConfig>>();
+
+	use_drop(move || {
+		if let Some(process) = game_process.read().as_ref() {
+			let pid = process.child.id();
+			#[cfg(unix)]
+			{
+				use std::process::Command as SysCommand;
+				let _ = SysCommand::new("kill").arg(pid.to_string()).status();
+				info!("✓ Sent SIGTERM to game process (PID: {})", pid);
+			}
+			#[cfg(windows)]
+			{
+				use std::process::Command as SysCommand;
+				let _ = SysCommand::new("taskkill").args(["/PID", &pid.to_string(), "/F"]).status();
+				info!("✓ Killed game process (PID: {})", pid);
+			}
+		}
+	});
+
 	use_effect(move || {
 		let event_clone = events.clone();
 		events.subscribe::<OpenGameEvent>(move |event| {
