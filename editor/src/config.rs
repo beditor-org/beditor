@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -6,7 +7,9 @@ use tracing::{error, info};
 
 pub const APP_NAME: &str = "Beditor";
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
-
+lazy_static! {
+	pub static ref WINDOW_TITLE: String = format!("{} v{}", APP_NAME, APP_VERSION);
+}
 use crate::{
 	panel::{SocketAlignment, SocketsConfig},
 	PanelSocket,
@@ -36,7 +39,7 @@ impl Default for EditorConfig {
 	fn default() -> Self {
 		Self {
 			window: WindowConfig {
-				title: format!("{} v{}", APP_NAME, APP_VERSION),
+				title: WINDOW_TITLE.clone(),
 				resizable: true,
 				..Default::default()
 			},
@@ -119,5 +122,16 @@ impl EditorConfig {
 				error!("Failed to serialize config: {}", e);
 			}
 		}
+	}
+
+	pub fn add_recent_project(&mut self, project: RecentProject) {
+		// Remove if already exists (to move it to front)
+		self.recent_projects.retain(|p| p.path != project.path);
+		// Add to front
+		self.recent_projects.insert(0, project);
+		// Keep only last 10
+		self.recent_projects.truncate(10);
+		// Save config
+		self.save();
 	}
 }

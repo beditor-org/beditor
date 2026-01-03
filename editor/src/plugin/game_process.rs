@@ -7,8 +7,9 @@ use std::{
 use tracing::info;
 
 use crate::{
-	event::{Events, OpenGameEvent},
-	plugin::{Plugin, PluginRegistry},
+	config::{EditorConfig, RecentProject},
+	event::{Events, OpenGameEvent, SwitchWorkspaceEvent},
+	plugin::{core::CoreWorkspace, Plugin, PluginRegistry},
 };
 
 pub struct RenderViewportEvent {}
@@ -44,28 +45,50 @@ fn entry() -> Element {
 	let events = use_context::<Events>();
 	let mut registry = use_context::<Signal<PluginRegistry>>();
 	let mut game_process = use_context::<Signal<Option<GameProcess>>>();
-
+	let mut config = use_context::<Signal<EditorConfig>>();
 	use_effect(move || {
+		let event_clone = events.clone();
 		events.subscribe::<OpenGameEvent>(move |event| {
-			let game_path = &event.0;
-			info!("Starting Bevy game process: ${game_path}");
+			let game_path = event.0.clone();
+			let mut game_process = game_process.clone();
+			let mut config = config.clone();
+			let event_clone = event_clone.clone();
 
-			let mut child = Command::new(game_path)
-				.arg("--editor-mode")
-				.stdin(Stdio::piped())
-				.stdout(Stdio::piped())
-				.stderr(Stdio::inherit())
-				.spawn()
-				.expect("Failed to start game process");
+			// Spawn async task to avoid blocking UI thread
+			spawn(async move {
+				info!("Starting Bevy game process: ${game_path}");
 
-			let stdin = child.stdin.take().expect("Failed to get stdin");
-			let stdout = child.stdout.take().expect("Failed to get stdout");
-			*game_process.write() = Some(GameProcess {
-				child: Arc::new(child),
-				stdin: Arc::new(Mutex::new(Some(stdin))),
-				stdout: Arc::new(Mutex::new(Some(stdout))),
+				let mut child = Command::new(&game_path)
+					.arg("--editor-mode")
+					.stdin(Stdio::piped())
+					.stdout(Stdio::piped())
+					.stderr(Stdio::inherit())
+					.spawn()
+					.expect("Failed to start game process");
+
+				let stdin = child.stdin.take().expect("Failed to get stdin");
+				let stdout = child.stdout.take().expect("Failed to get stdout");
+				*game_process.write() = Some(GameProcess {
+					child: Arc::new(child),
+					stdin: Arc::new(Mutex::new(Some(stdin))),
+					stdout: Arc::new(Mutex::new(Some(stdout))),
+				});
+				info!("✓ Game process started");
+
+				// Add to recent projects
+				let project_name = std::path::Path::new(&game_path)
+					.file_stem()
+					.and_then(|s| s.to_str())
+					.expect("Failed to get project name")
+					.to_string();
+
+				config.write().add_recent_project(RecentProject {
+					name: project_name,
+					path: game_path.clone(),
+				});
+				// Switch to editor workspace
+				event_clone.publish(SwitchWorkspaceEvent(CoreWorkspace::Editor.id()));
 			});
-			info!("✓ Game process started");
 		});
 	});
 

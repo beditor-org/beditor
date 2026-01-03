@@ -3543,6 +3543,7 @@ dependencies = [
  "dioxus 0.7.1",
  "dioxus-free-icons",
  "dirs",
+ "lazy_static",
  "lucide-dioxus",
  "raw-window-handle 0.6.2",
  "rfd 0.16.0",

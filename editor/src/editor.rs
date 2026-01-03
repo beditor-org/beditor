@@ -1,10 +1,7 @@
 use dioxus::prelude::*;
 use rfd::AsyncFileDialog;
 
-use crate::{
-	event::{Events, OpenGameEvent, SwitchWorkspaceEvent},
-	plugin::core::plugin::CoreWorkspace,
-};
+use crate::event::{Events, OpenGameEvent};
 
 /// Opens a file dialog to select a game executable and publishes events
 pub fn open_project_dialog(events: Events) {
@@ -18,7 +15,6 @@ pub fn open_project_dialog(events: Events) {
 		if let Some(file_handle) = result {
 			let file_path = file_handle.path().to_string_lossy().to_string();
 			events.publish(OpenGameEvent(file_path));
-			events.publish(SwitchWorkspaceEvent(CoreWorkspace::Editor.id()));
 		}
 	});
 }

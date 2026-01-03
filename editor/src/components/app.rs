@@ -6,19 +6,22 @@ use crate::{
 	init_theme,
 	plugin::{Plugin, PluginRegistry},
 	workspace::WorkspaceRegistry,
+	EditorConfig,
 };
 
 #[component]
 pub fn App() -> Element {
 	info!("rendering App component");
 	let plugins = use_context::<Vec<fn() -> Plugin>>();
+	let config = use_context::<EditorConfig>();
 	let events = use_context_provider(Events::new);
+	use_context_provider(|| Signal::new(config));
 
 	let registry = use_context_provider(|| Signal::new(Into::<PluginRegistry>::into(plugins)));
 
 	// Initialize WorkspaceRegistry from plugins BEFORE calling entry() functions
 	let workspaces = WorkspaceRegistry::from_plugins(&registry.read());
-	let mut workspace_registry = use_context_provider(|| Signal::new(workspaces));
+	let workspace_registry = use_context_provider(|| Signal::new(workspaces));
 
 	// Subscribe to workspace switch events
 	use_effect(move || {
