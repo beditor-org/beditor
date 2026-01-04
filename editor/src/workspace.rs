@@ -14,6 +14,7 @@ pub struct Workspace {
 pub struct WorkspaceRegistry {
 	pub workspaces: HashMap<ResourceId, Workspace>,
 	current: Option<ResourceId>,
+	pub tabs: Vec<ResourceId>, // List of open workspace tabs
 }
 
 impl WorkspaceRegistry {
@@ -23,11 +24,32 @@ impl WorkspaceRegistry {
 
 	pub fn set_current(&mut self, workspace_id: ResourceId) {
 		if self.workspaces.get(&workspace_id).is_some() {
+			// Add to tabs if not already present
+			if !self.tabs.contains(&workspace_id) {
+				self.tabs.push(workspace_id.clone());
+			}
 			self.current = Some(workspace_id.clone());
 			info!("Current workspace set to {}", workspace_id.as_str());
 		} else {
 			warn!("Workspace ID {} not found in registry", workspace_id.as_str());
 		}
+	}
+
+	pub fn close_tab(&mut self, workspace_id: &ResourceId) {
+		if let Some(pos) = self.tabs.iter().position(|id| id == workspace_id) {
+			self.tabs.remove(pos);
+
+			// If closing current tab, switch to another
+			if self.current.as_ref() == Some(workspace_id) {
+				self.current = self.tabs.last().cloned();
+			}
+
+			info!("Closed workspace tab {}", workspace_id.as_str());
+		}
+	}
+
+	pub fn get_current_id(&self) -> Option<&ResourceId> {
+		self.current.as_ref()
 	}
 
 	pub fn get_current(&self) -> Option<&Workspace> {

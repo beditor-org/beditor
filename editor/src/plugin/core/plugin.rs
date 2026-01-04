@@ -1,7 +1,7 @@
 use crate::{
 	plugin::{
 		core::{
-			top_bar::{main_menu::MenuBar, Logo, WindowControls},
+			top_bar::{main_menu::MenuBar, Logo, WindowControls, WorkspaceTabsTool},
 			welcome, StatusBar,
 		},
 		Plugin, PluginRegistry,
@@ -89,8 +89,9 @@ pub fn core_plugin() -> Plugin {
 			}
 			.with_tools(vec![
 				("Logo", Logo, ToolAlignment::default()),
-				("Window controls", WindowControls, ToolAlignment::End),
 				("Main menu", MenuBar, ToolAlignment::default()),
+				("Workspace tabs", WorkspaceTabsTool, ToolAlignment::default()),
+				("Window controls", WindowControls, ToolAlignment::End),
 			]),
 			PanelConfig {
 				socket: PanelSocket::Center,
