@@ -9,7 +9,7 @@ use tracing::info;
 use crate::{
 	config::{EditorConfig, RecentProject},
 	event::{Events, OpenGameEvent, SwitchWorkspaceEvent},
-	plugin::{core::CoreWorkspace, Plugin, PluginRegistry},
+	plugin::{core::plugin::CORE_EDITOR_WORKSPACE, Plugin, PluginRegistry},
 };
 
 pub struct RenderViewportEvent {}
@@ -106,7 +106,7 @@ fn entry() -> Element {
 					path: game_path.clone(),
 				});
 				// Switch to editor workspace
-				event_clone.publish(SwitchWorkspaceEvent(CoreWorkspace::Editor.id()));
+				event_clone.publish(SwitchWorkspaceEvent(CORE_EDITOR_WORKSPACE.clone()));
 			});
 		});
 	});

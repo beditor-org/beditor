@@ -60,8 +60,10 @@ impl ResourceId {
 	}
 
 	/// Get the resource name
-	pub fn name(&self) -> Option<&str> {
-		self.parse().map(|(_, _, n)| n)
+	pub fn name(&self) -> &str {
+		self.parse()
+			.map(|(_, _, n)| n)
+			.expect("ResourceId does not have a valid name")
 	}
 }
 
@@ -92,7 +94,7 @@ mod tests {
 		let id = ResourceId::panel("core", "top_bar");
 		assert_eq!(id.as_str(), "core::panel::top_bar");
 		assert_eq!(id.plugin(), Some("core"));
-		assert_eq!(id.name(), Some("top_bar"));
+		assert_eq!(id.name(), "top_bar");
 		assert_eq!(id.resource_type(), Some(ResourceType::Panel));
 	}
 
@@ -101,7 +103,7 @@ mod tests {
 		let id = ResourceId::workspace("viewport", "editor");
 		assert_eq!(id.as_str(), "viewport::workspace::editor");
 		assert_eq!(id.plugin(), Some("viewport"));
-		assert_eq!(id.name(), Some("editor"));
+		assert_eq!(id.name(), "editor");
 		assert_eq!(id.resource_type(), Some(ResourceType::Workspace));
 	}
 

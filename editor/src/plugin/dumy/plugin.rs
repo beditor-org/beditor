@@ -3,7 +3,7 @@ use strum::Display;
 use tracing::info;
 
 use crate::{
-	plugin::{core::CorePluginPanel, dumy::dumy::Dumy, Plugin, PluginRegistry},
+	plugin::{core::plugin::CORE_STATUS_BAR_PANEL, dumy::dumy::Dumy, Plugin, PluginRegistry},
 	tool::ToolPlacement,
 	PanelConfig, PanelDisplayMode, PanelSocket, Tool, ToolAlignment,
 };
@@ -35,7 +35,7 @@ pub fn dumy_plugin() -> Plugin {
 
 		// Tool placed in another plugin's panel (Core's status bar)
 		tools: vec![Tool {
-			placement: ToolPlacement::ByResourceId(CorePluginPanel::StatusBar.id()),
+			placement: ToolPlacement::ByResourceId(CORE_STATUS_BAR_PANEL.clone()),
 			name: "Dumy tool".to_string(),
 			component: Dumy,
 			alignment: ToolAlignment::End,

@@ -8,7 +8,7 @@ use std::{
 
 use crate::{
 	event::Events,
-	plugin::{core::CorePluginPanel, game_process::GameProcess, Plugin, PluginRegistry},
+	plugin::{core::plugin::CORE_STATUS_BAR_PANEL, game_process::GameProcess, Plugin, PluginRegistry},
 	tool::ToolPlacement,
 	Tool, ToolAlignment,
 };
@@ -25,7 +25,7 @@ pub fn stdio_transport_plugin() -> Plugin {
 		setup_context: Some(setup_context),
 		description: "Implements Stdio Transport".to_string(),
 		tools: vec![Tool {
-			placement: ToolPlacement::ByResourceId(CorePluginPanel::StatusBar.id()),
+			placement: ToolPlacement::ByResourceId(CORE_STATUS_BAR_PANEL.clone()),
 			name: "Dumy tool".to_string(),
 			component: counter,
 			alignment: ToolAlignment::End,

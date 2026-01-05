@@ -3,8 +3,9 @@ use std::sync::{Arc, RwLock};
 use editor::{
 	components::App,
 	plugin::{
-		core::plugin::core_plugin, dumy::plugin::dumy_plugin, game_process::game_process_plugin,
-		transport::stdio::stdio_transport_plugin, viewport::plugin::viewport_plugin, PluginBuilder,
+		asset_browser::asset_browser_plugin, core::plugin::core_plugin, dumy::plugin::dumy_plugin,
+		game_process::game_process_plugin, transport::stdio::stdio_transport_plugin, viewport::plugin::viewport_plugin,
+		PluginBuilder,
 	},
 	EditorConfig, EditorContext,
 };
@@ -25,6 +26,7 @@ fn main() {
 		stdio_transport_plugin,
 		game_process_plugin,
 		viewport_plugin,
+		asset_browser_plugin,
 	];
 	dioxus::LaunchBuilder::desktop()
 		.with_cfg(window_cfg)

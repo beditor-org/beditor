@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::{editor::open_project_dialog, event::Events, plugin::core::recent_projects::recent_projects, EditorConfig};
+use crate::{event::Events, plugin::core::recent_projects::recent_projects, project::open_project_dialog, EditorConfig};
 #[component]
 pub fn welcome() -> Element {
 	let events = use_context::<Events>();

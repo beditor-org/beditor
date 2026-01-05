@@ -8,7 +8,7 @@ use bridge::{
 };
 use tracing::info;
 
-use crate::plugin::core::{CorePluginPanel, CoreWorkspace};
+use crate::plugin::core::plugin::{CORE_EDITOR_WORKSPACE, CORE_STATUS_BAR_PANEL};
 use crate::plugin::viewport::frame_counter::FrameCounter;
 use crate::tool::ToolPlacement;
 use crate::{
@@ -38,12 +38,12 @@ pub fn viewport_plugin() -> Plugin {
 			is_visible: true,
 			tools: vec![],
 			is_active: false,
-			workspaces: vec![CoreWorkspace::Editor.id()],
+			workspaces: vec![CORE_EDITOR_WORKSPACE.clone()],
 		}
 		.with_tools(vec![("Viewport", Viewport, Default::default())])],
 		description: "Viewport plugin responsible for reading frames from the game process".to_string(),
 		tools: vec![Tool {
-			placement: ToolPlacement::ByResourceId(CorePluginPanel::StatusBar.id()),
+			placement: ToolPlacement::ByResourceId(CORE_STATUS_BAR_PANEL.clone()),
 			name: "Frame counter".to_string(),
 			component: FrameCounter,
 			alignment: ToolAlignment::End,

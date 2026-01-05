@@ -1,6 +1,6 @@
 use dioxus::{core::Element, prelude::*};
 
-use crate::{editor::open_project_dialog, event::Events, panel::PanelsManager, plugin::PluginRegistry};
+use crate::{event::Events, panel::PanelsManager, plugin::PluginRegistry, project::open_project_dialog};
 
 #[component]
 pub fn MenuBar() -> Element {

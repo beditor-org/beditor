@@ -1,3 +1,4 @@
+pub mod asset_browser;
 pub mod core;
 pub mod dumy;
 pub mod game_process;
@@ -43,9 +44,9 @@ pub struct PluginRegistry {
 }
 
 impl Default for PluginRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
+	fn default() -> Self {
+		Self::new()
+	}
 }
 
 impl PluginRegistry {

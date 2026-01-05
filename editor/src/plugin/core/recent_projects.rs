@@ -1,9 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::{
-	event::{Events, OpenGameEvent},
-	EditorConfig,
-};
+use crate::{event::Events, project::ProjectOpenedEvent, EditorConfig, Project};
 
 pub fn recent_projects() -> Element {
 	let config = use_context::<Signal<EditorConfig>>();
@@ -26,7 +23,9 @@ pub fn recent_projects() -> Element {
 							a {
 								class: "text-blue-500 hover:text-blue-600 hover:underline cursor-pointer",
 								onclick: move |_| {
-									events.publish(OpenGameEvent(project.path.clone()));
+									events.publish(ProjectOpenedEvent {
+										project: Project::from(std::path::Path::new(&project.path)),
+									});
 								},
 								"{project.name}"
 							}
