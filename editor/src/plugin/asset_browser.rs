@@ -1,13 +1,10 @@
-use std::{
-	fs::read_dir,
-	path::{Path, PathBuf},
-};
+use std::{fs::read_dir, path::PathBuf};
 
 use dioxus::prelude::*;
 use lazy_static::lazy_static;
-use ui::GridView;
 
 use crate::{
+	event::{Events, OpenGameEvent},
 	plugin::{
 		core::plugin::{CORE_STATUS_BAR_PANEL, CORE_TOP_BAR_PANEL},
 		Plugin,
@@ -69,6 +66,7 @@ struct Item {
 #[component]
 pub fn AssetBrowser() -> Element {
 	let current_project = use_context::<Signal<CurrentProject>>();
+	let events = use_context::<Events>();
 	let project_path = current_project.read().project.as_ref().map(|p| p.path.clone()).unwrap();
 	let mut path = use_signal(|| current_project.read().project.as_ref().map(|p| p.path.clone()).unwrap());
 	let mut items = vec![];
@@ -88,10 +86,15 @@ pub fn AssetBrowser() -> Element {
 				item_type: ItemType::Folder,
 			});
 		} else {
-			let file_name = entry.file_name();
+			let path = entry.path();
+			let asset_type = if path.to_string_lossy().ends_with(".scn.ron") {
+				AssetItem::Scene
+			} else {
+				AssetItem::Unknown
+			};
 			items.push(Item {
-				path: entry.path(),
-				item_type: ItemType::File(AssetItem::Unknown),
+				path,
+				item_type: ItemType::File(asset_type),
 			});
 		}
 	}
@@ -115,12 +118,24 @@ pub fn AssetBrowser() -> Element {
 				{items.iter().map(|item| {
 					let item_path = item.path.clone();
 					let item_type = item.item_type.clone();
+					let events = events.clone();
 					rsx! {
 						div {
 							class: "group flex flex-col items-center p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-150 select-none",
 							ondoubleclick: move |_| {
-							if matches!(item_type, ItemType::Folder | ItemType::MoveUp) {
-									path.set(item_path.to_string_lossy().to_string());
+								match item_type {
+									ItemType::Folder | ItemType::MoveUp => {
+										path.set(item_path.to_string_lossy().to_string());
+									}
+									ItemType::File(AssetItem::Scene) => {
+										// Launch demo as game process for scene preview
+										// For now, hardcoded to demo executable
+										let demo_path = std::env::current_dir()
+											.unwrap()
+											.join("target/release/examples/demo");
+										events.publish(OpenGameEvent(demo_path.to_string_lossy().to_string()));
+									}
+									_ => {}
 								}
 							},
 							// Icon

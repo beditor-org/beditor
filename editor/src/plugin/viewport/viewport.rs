@@ -46,9 +46,12 @@ pub fn Viewport() -> Element {
 
 	rsx! {
 		div {
-			class: "relative w-full h-full bg-gray-900",
+			class: "relative w-full h-full bg-gray-900 overflow-hidden",
 			if let Some(data) = frame() {
-				img { src: "data:image/png;base64,{data}" }
+				img {
+					class: "w-full h-full object-contain",
+					src: "data:image/png;base64,{data}"
+				}
 			} else {
 				div { "No frame" }
 			}

@@ -29,6 +29,7 @@ pub fn stdio_transport_plugin() -> Plugin {
 			name: "Dumy tool".to_string(),
 			component: counter,
 			alignment: ToolAlignment::End,
+			workspaces: vec![],
 		}],
 		..Default::default()
 	}

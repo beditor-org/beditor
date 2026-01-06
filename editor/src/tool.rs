@@ -25,4 +25,6 @@ pub struct Tool {
 	pub component: fn() -> Element,
 	/// Only work in Stacked panels
 	pub alignment: ToolAlignment,
+	/// Workspaces where this tool should be visible
+	pub workspaces: Vec<ResourceId>,
 }

@@ -39,6 +39,7 @@ pub fn dumy_plugin() -> Plugin {
 			name: "Dumy tool".to_string(),
 			component: Dumy,
 			alignment: ToolAlignment::End,
+			workspaces: vec![],
 		}],
 		entry: Some(dumy_entry),
 		..Default::default()

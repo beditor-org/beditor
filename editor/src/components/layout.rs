@@ -54,10 +54,10 @@ pub fn EditorLayout() -> Element {
 			class: "flex flex-col h-screen overflow-hidden gap-1 p-1 bg-primary",
 			LayoutArea { panels: top_panels }
 			div{
-				class: "flex flex-row grow-1 gap-1",
+				class: "flex flex-row flex-1 gap-1 overflow-hidden",
 				LayoutArea { panels: left_panels }
 				div {
-					class: "flex flex-col grow-1 gap-1",
+					class: "flex flex-col flex-1 gap-1 overflow-hidden",
 					LayoutArea { panels: center_top_panels }
 					if let Some(panel) = center_panel {
 						TabbedPanel { key: "{panel.name}", panel }

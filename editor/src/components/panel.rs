@@ -13,16 +13,29 @@ pub fn Panel(panel: PanelConfig) -> Element {
 #[component]
 pub fn StackedPanel(panel: PanelConfig) -> Element {
 	use crate::ToolAlignment;
+	let workspace_registry = use_context::<Signal<crate::workspace::WorkspaceRegistry>>();
+	let current_workspace_name = workspace_registry
+		.read()
+		.get_current()
+		.expect("No current workspace")
+		.name
+		.clone();
+
+	// Filter tools by workspace visibility
+	let visible_tools: Vec<_> = panel
+		.tools
+		.iter()
+		.filter(|tool| tool.workspaces.is_empty() || tool.workspaces.iter().any(|ws| ws.name() == current_workspace_name))
+		.collect();
 
 	let (start_tools, center_tools, end_tools): (Vec<_>, Vec<_>, Vec<_>) =
-		panel
-			.tools
+		visible_tools
 			.iter()
 			.fold((vec![], vec![], vec![]), |(mut start, mut center, mut end), tool| {
 				match tool.alignment {
-					ToolAlignment::Start => start.push(tool),
-					ToolAlignment::Center => center.push(tool),
-					ToolAlignment::End => end.push(tool),
+					ToolAlignment::Start => start.push(*tool),
+					ToolAlignment::Center => center.push(*tool),
+					ToolAlignment::End => end.push(*tool),
 				}
 				(start, center, end)
 			});
@@ -67,7 +80,7 @@ pub fn TabbedPanel(panel: PanelConfig) -> Element {
 	rsx!(for (idx, tool) in tools.iter().enumerate() {
 		div {
 			key: "{idx}",
-			class: "grow panel",
+			class: "flex-1 panel overflow-hidden",
 			{(tool.component)()}
 		}
 	})

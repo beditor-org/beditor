@@ -57,6 +57,7 @@ impl PanelConfig {
 					name: name.to_string(),
 					component: *component,
 					alignment: *alignment,
+					workspaces: vec![],
 				})
 				.collect::<Vec<Tool>>(),
 		);
@@ -72,6 +73,8 @@ impl PanelsManager {
 	pub fn make_active_for_workspace(&mut self, workspace: &crate::workspace::Workspace) {
 		self.panels.iter_mut().for_each(|(id, panel)| {
 			panel.is_active = workspace.panels.contains(id);
+			// Don't filter tools here - it breaks hooks ordering!
+			// Tools will check workspace visibility in StackedPanel component
 		});
 	}
 
@@ -97,7 +100,7 @@ impl PanelsManager {
 		// Place tools that want to be placed in panels from other plugins
 		tools.iter().for_each(|tool| match &tool.placement {
 			ToolPlacement::ByResourceId(ref resource_id) => {
-				if let Some((_, mut panel)) = panels_manager.clone().panels.into_iter().find(|(id, _)| id == resource_id) {
+				if let Some(panel) = panels_manager.panels.get_mut(resource_id) {
 					info!("Adding tool '{}' to panel '{}'", tool.name, panel.name);
 					panel.tools.push(tool.clone());
 				} else {

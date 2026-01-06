@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use client::{EditorApp, EditorCamera};
+
 fn main() {
 	let mut app = App::new();
 	app.with_default_plugins(
@@ -12,26 +13,41 @@ fn main() {
 				..default()
 			})
 			.set(bevy::log::LogPlugin {
-				// Disable all Bevy logs to prevent stdout pollution
-				// Only our eprintln! (stderr) and binary frames (stdout) will be output
 				level: bevy::log::Level::ERROR,
 				filter: "warn".to_string(),
+				..default()
+			})
+			.set(AssetPlugin {
+				file_path: "examples".to_string(),
 				..default()
 			}),
 	)
 	.with_editor_plugins()
-	.add_systems(Startup, setup_scene)
+	.add_systems(Startup, (load_scene, add_meshes))
 	.add_systems(Update, rotate_cube)
 	.run();
 }
 
-fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
-	// Spawn a cube
+fn load_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
+	// Load scene from file - only transforms and light
+	let scene_handle: Handle<DynamicScene> = asset_server.load("demo_scene.scn.ron");
+	commands.spawn(DynamicSceneRoot(scene_handle));
+}
+
+fn add_meshes(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
+	// Add meshes to the scene
 	commands.spawn((
 		Mesh3d(meshes.add(Cuboid::new(2.0, 2.0, 2.0))),
 		MeshMaterial3d(materials.add(Color::srgb(0.8, 0.2, 0.3))),
 		Transform::from_xyz(0.0, 0.5, 0.0),
 		Name::new("Spinning Cube"),
+	));
+
+	commands.spawn((
+		Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
+		MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+		Transform::from_xyz(0.0, 0.0, 0.0),
+		Name::new("Ground"),
 	));
 
 	// Light
@@ -45,20 +61,11 @@ fn setup_scene(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mat
 		Name::new("Main Light"),
 	));
 
-	// Camera
 	commands.spawn((
 		Camera3d::default(),
 		Transform::from_xyz(-3.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
 		Name::new("Main Camera"),
 		EditorCamera,
-	));
-
-	// Ground plane
-	commands.spawn((
-		Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
-		MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
-		Transform::from_xyz(0.0, 0.0, 0.0),
-		Name::new("Ground"),
 	));
 }
 

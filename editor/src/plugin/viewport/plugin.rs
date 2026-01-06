@@ -47,6 +47,7 @@ pub fn viewport_plugin() -> Plugin {
 			name: "Frame counter".to_string(),
 			component: FrameCounter,
 			alignment: ToolAlignment::End,
+			workspaces: vec![CORE_EDITOR_WORKSPACE.clone()],
 		}],
 		..Default::default()
 	}

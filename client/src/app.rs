@@ -78,13 +78,15 @@ pub trait EditorApp {
 
 impl EditorApp for App {
 	fn with_editor_plugins(&mut self) -> &mut Self {
-		self.add_plugins(RemotePlugin::default())
-			.add_plugins(ScheduleRunnerPlugin::run_loop(
-				// Run 60 times per second.
-				Duration::from_secs_f64(1.0 / 60.0),
-			))
-			.add_plugins((FrameCapturePlugin, BrpProtocolPlugin))
-			.add_systems(PostStartup, setup_editor_camera);
+		if self.is_editor_mode() {
+			self.add_plugins(RemotePlugin::default())
+				.add_plugins(ScheduleRunnerPlugin::run_loop(
+					// Run 60 times per second.
+					Duration::from_secs_f64(1.0 / 60.0),
+				))
+				.add_plugins((FrameCapturePlugin, BrpProtocolPlugin))
+				.add_systems(PostStartup, setup_editor_camera);
+		}
 		self
 	}
 
