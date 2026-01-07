@@ -360,6 +360,7 @@ fn save_captured_frames(
 	receiver: Res<MainWorldReceiver>,
 	mut frame_counter: Local<u32>,
 	mut last_frame_time: Local<Option<std::time::Instant>>,
+	mut last_frame_hash: Local<Option<u64>>,
 ) {
 	// Throttle to ~60 FPS for output
 	let now = std::time::Instant::now();
@@ -383,6 +384,21 @@ fn save_captured_frames(
 
 	// Update last frame time
 	*last_frame_time = Some(now);
+
+	// Quick hash check - skip if frame didn't change (static scene optimization)
+	use std::collections::hash_map::DefaultHasher;
+	use std::hash::{Hash, Hasher};
+	let mut hasher = DefaultHasher::new();
+	image_data.hash(&mut hasher);
+	let current_hash = hasher.finish();
+
+	if let Some(prev_hash) = *last_frame_hash {
+		if current_hash == prev_hash {
+			// Frame unchanged - skip encoding/sending entirely
+			return;
+		}
+	}
+	*last_frame_hash = Some(current_hash);
 
 	// Offload encoding to separate thread to avoid blocking main thread
 	std::thread::spawn(move || {
