@@ -89,11 +89,11 @@ pub fn Viewport() -> Element {
 	// Render - no hooks here
 	rsx! {
 		div {
-			class: "relative w-full h-full bg-gray-900 overflow-hidden flex items-center justify-center",
+			class: "relative w-full h-full bg-gray-900 overflow-hidden",
 			canvas {
 				id: "{canvas_id}",
-				class: "max-w-full max-h-full object-contain",
-				style: "image-rendering: auto;"
+				class: "w-full h-full",
+				style: "image-rendering: auto; object-fit: contain;"
 			}
 		}
 	}
