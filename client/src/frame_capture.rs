@@ -119,7 +119,6 @@ fn setup_cpu_image(mut commands: Commands, mut images: ResMut<Assets<Image>>, ex
 	let cpu_image = Image::new_target_texture(640, 480, bevy::render::render_resource::TextureFormat::bevy_default());
 	let handle = images.add(cpu_image);
 	commands.spawn(ImageToSave(handle));
-	eprintln!("🖼️  CPU image for saving created");
 }
 
 // ============================================================================
@@ -364,12 +363,12 @@ fn save_captured_frames(
 ) {
 	// Throttle to ~60 FPS for output
 	let now = std::time::Instant::now();
-	// if let Some(last_time) = *last_frame_time {
-	// 	if now.duration_since(last_time).as_secs_f32() < 0.0167 {
-	// 		// Skip this frame - too soon (60 FPS = ~16.67ms)
-	// 		return;
-	// 	}
-	// }
+	if let Some(last_time) = *last_frame_time {
+		if now.duration_since(last_time).as_secs_f32() < 0.0167 {
+			// Skip this frame - too soon (60 FPS = ~16.67ms)
+			return;
+		}
+	}
 
 	// Use try_recv to not block (non-blocking)
 	// May have multiple frames in queue - take latest
@@ -385,56 +384,54 @@ fn save_captured_frames(
 	// Update last frame time
 	*last_frame_time = Some(now);
 
-	// Dimensions (hardcoded, same as during creation)
-	let width = 640u32;
-	let height = 480u32;
-	let row_bytes = width as usize * 4; // RGBA = 4 bytes per pixel
-	let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
+	// Offload encoding to separate thread to avoid blocking main thread
+	std::thread::spawn(move || {
+		// Dimensions (hardcoded, same as during creation)
+		let width = 640u32;
+		let height = 480u32;
+		let row_bytes = width as usize * 4; // RGBA = 4 bytes per pixel
+		let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
 
-	// If there's padding - need to remove it
-	let actual_data: Vec<u8> = if row_bytes == aligned_row_bytes {
-		// No padding needed
-		image_data
-	} else {
-		// Has padding - remove from each row
-		image_data
-			.chunks(aligned_row_bytes)
-			.take(height as usize)
-			.flat_map(|row| &row[..row_bytes])
-			.copied()
-			.collect()
-	};
+		// If there's padding - need to remove it
+		let actual_data: Vec<u8> = if row_bytes == aligned_row_bytes {
+			// No padding needed
+			image_data
+		} else {
+			// Has padding - remove from each row
+			image_data
+				.chunks(aligned_row_bytes)
+				.take(height as usize)
+				.flat_map(|row| &row[..row_bytes])
+				.copied()
+				.collect()
+		};
 
-	// Skip empty frames (first few while GPU hasn't finished rendering)
-	let non_zero_count = actual_data.iter().filter(|&&b| b != 0).count();
-	if non_zero_count == 0 {
-		return; // Skip empty frames
-	}
+		// Skip empty frames (first few while GPU hasn't finished rendering)
+		let non_zero_count = actual_data.iter().filter(|&&b| b != 0).count();
+		if non_zero_count == 0 {
+			return; // Skip empty frames
+		}
 
-	// Create Bevy Image from raw data (like in headless_renderer example)
-	let mut bevy_img = Image::new_target_texture(width, height, bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb);
-	bevy_img.data = Some(actual_data);
+		// JPEG with LOW quality (fast encoding, small size, hardware decode in browser)
+		let mut bevy_img = Image::new_target_texture(width, height, bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb);
+		bevy_img.data = Some(actual_data);
 
-	// Convert to DynamicImage for saving
-	let Ok(dynamic_img) = bevy_img.try_into_dynamic() else {
-		eprintln!("Failed to convert to dynamic image");
-		return;
-	};
+		let Ok(dynamic_img) = bevy_img.try_into_dynamic() else {
+			return;
+		};
 
-	// Convert to PNG bytes
-	let mut png_bytes = std::io::Cursor::new(Vec::new());
-	if let Err(e) = dynamic_img.write_to(&mut png_bytes, image::ImageFormat::Png) {
-		eprintln!("Failed to encode PNG: {e}");
-		return;
-	}
+		// Quality 60 - fast encoding, acceptable quality for viewport
+		let mut jpeg_bytes = std::io::Cursor::new(Vec::new());
+		let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 60);
+		if let Err(_) = dynamic_img.write_with_encoder(encoder) {
+			return;
+		}
 
-	// Encode to base64
-	use base64::{engine::general_purpose, Engine as _};
-	let base64_data = general_purpose::STANDARD.encode(png_bytes.into_inner());
+		use base64::{engine::general_purpose, Engine as _};
+		let base64_data = general_purpose::STANDARD.encode(jpeg_bytes.into_inner());
 
-	// Output to stdout in multiplexer binary format
-	// Ignore broken pipe - editor may not be reading
-	let _ = write_frame_to_multiplexer(&base64_data);
+		let _ = write_frame_to_multiplexer(&base64_data);
+	});
 
 	*frame_counter += 1;
 }
