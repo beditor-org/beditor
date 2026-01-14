@@ -12,3 +12,4 @@ base64 = "0.22"
 image = "0.25"
 crossbeam-channel.workspace = true
 bridge = { path = "../bridge" }
+tokio = { workspace = true }

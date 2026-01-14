@@ -1,6 +1,14 @@
-use std::sync::{Arc, Mutex};
+use std::{
+	process::{ChildStdin, ChildStdout},
+	sync::{Arc, Mutex},
+};
 
-use bridge::protocol::frame_stream::FrameStreamProtocol;
+use bridge::{
+	codec::json::JsonCodec,
+	connection::Connection,
+	multiplexer::Multiplexer,
+	protocol::{camera::CameraInputProtocol, frame_stream::FrameStreamProtocol},
+};
 use dioxus::{document::eval, prelude::*};
 use tracing::info;
 
@@ -12,10 +20,28 @@ pub fn Viewport() -> Element {
 	let frame = use_signal(|| None::<String>);
 	let protocol_signal = use_context::<Signal<Option<Arc<Mutex<FrameStreamProtocol>>>>>();
 	let canvas_id = "viewport-canvas";
+	let mut multiplexer = use_context::<Signal<Option<Multiplexer<ChildStdout, ChildStdin>>>>();
+	let mut camera_input = use_context::<Signal<Option<Arc<Mutex<CameraInputProtocol>>>>>();
 
+	use_effect(move || {
+		let has_mux = multiplexer.read().is_some();
+		let has_no_connection = camera_input.read().is_none();
+
+		if has_mux && has_no_connection {
+			if let Some(mux) = multiplexer.write().as_mut() {
+				let connection = Connection::new(
+					JsonCodec,
+					mux.register_for_type::<CameraInputProtocol>(),
+					mux.get_writer_for_type::<CameraInputProtocol>(),
+				);
+				camera_input.set(Some(Arc::new(Mutex::new(CameraInputProtocol { connection }))));
+			}
+		}
+	});
 	// Hook 1: Mount effect
 	use_hook(|| {
 		viewport_state.write().is_opened = true;
+
 		info!("Viewport component mounted, viewport opened");
 	});
 
@@ -48,7 +74,6 @@ pub fn Viewport() -> Element {
 		}
 	});
 
-	// Hook 3: Canvas renderer - simple Image decode (hardware accelerated)
 	use_effect(move || {
 		let data_opt = frame();
 		let data = match data_opt {
@@ -86,6 +111,10 @@ pub fn Viewport() -> Element {
 		});
 	});
 
+	// Mouse state for camera control
+	let mut is_dragging = use_signal(|| false);
+	let mut last_mouse_pos = use_signal(|| (0.0, 0.0));
+
 	// Render - no hooks here
 	rsx! {
 		div {
@@ -93,7 +122,39 @@ pub fn Viewport() -> Element {
 			canvas {
 				id: "{canvas_id}",
 				class: "w-full h-full",
-				style: "image-rendering: auto; object-fit: contain;"
+				style: "image-rendering: auto; object-fit: contain;",
+				onmousedown: move |evt| {
+					if evt.trigger_button() == Some(dioxus::html::input_data::MouseButton::Secondary) {
+						is_dragging.set(true);
+						let coords = evt.page_coordinates();
+						last_mouse_pos.set((coords.x, coords.y));
+						info!("🖱️ Right mouse button pressed - camera control started");
+					}
+				},
+				onmousemove: move |evt| {
+					if is_dragging() {
+						if let Some(camera_input) = camera_input.read().as_ref() {
+
+							let coords = evt.page_coordinates();
+							let (last_x, last_y) = last_mouse_pos();
+							let dx = coords.x - last_x;
+							let dy = coords.y - last_y;
+							last_mouse_pos.set((coords.x, coords.y));
+							// camera_input.lock().unwrap().connection.send();
+							info!("🎥 Camera drag: dx={:.1}, dy={:.1}", dx, dy);
+						}
+					}
+				},
+				onmouseup: move |evt| {
+					if evt.trigger_button() == Some(dioxus::html::input_data::MouseButton::Secondary) {
+						is_dragging.set(false);
+						info!("🖱️ Right mouse button released - camera control stopped");
+					}
+				},
+				// Prevent context menu on right click
+				oncontextmenu: move |evt| {
+					evt.prevent_default();
+				}
 			}
 		}
 	}

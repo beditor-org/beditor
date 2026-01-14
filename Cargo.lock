@@ -2191,6 +2191,7 @@ dependencies = [
  "clap",
  "crossbeam-channel",
  "image",
+ "tokio",
 ]
 
 [[package]]

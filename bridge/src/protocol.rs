@@ -3,7 +3,9 @@ use std::io::Write;
 use crate::{codec::Codec, connection::Connection};
 
 pub mod brp;
+pub mod camera;
 pub mod frame_stream;
+
 pub trait Protocol {
 	type Codec: Codec;
 	type Writer: Write;

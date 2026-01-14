@@ -1,3 +1,4 @@
+use bridge::protocol::camera::CameraInputProtocol;
 use dioxus::prelude::*;
 
 use std::process::{ChildStdin, ChildStdout};
@@ -61,6 +62,8 @@ fn setup_context() -> Element {
 		})
 	});
 	use_context_provider(|| Signal::new(None::<Arc<Mutex<FrameStreamProtocol>>>));
+	use_context_provider(|| Signal::new(None::<Arc<Mutex<CameraInputProtocol>>>));
+
 	rsx!()
 }
 

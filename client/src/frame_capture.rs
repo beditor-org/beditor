@@ -20,40 +20,7 @@ use std::hash::{Hash, Hasher};
 use std::io::{self, Write};
 use std::sync::{atomic::AtomicBool, Arc};
 
-// ============================================================================
-// HELPER FUNCTIONS - for writing frames to multiplexer
-// ============================================================================
-
-/// Helper function to write a frame to stdout in multiplexer binary format.
-/// Format: [channel_id: u64 LE][length: u32 BE][payload]
-/// This is a temporary solution until full multiplexer integration.
-fn write_frame_to_multiplexer(data: &str) -> io::Result<()> {
-	let mut stdout = io::stdout().lock();
-
-	// Calculate channel_id the same way multiplexer does
-	// Use the actual FrameStreamProtocol type from bridge
-	let type_id = std::any::type_name::<FrameStreamProtocol>();
-	let mut hasher = DefaultHasher::new();
-	type_id.hash(&mut hasher);
-	let channel_id = hasher.finish();
-
-	// Debug: log channel_id once
-	static LOGGED: AtomicBool = AtomicBool::new(false);
-	if !LOGGED.swap(true, std::sync::atomic::Ordering::Relaxed) {
-		eprintln!("🔧 Game sending frames on channel: {} (type: {})", channel_id, type_id);
-	}
-
-	let payload = data.as_bytes();
-	let length = payload.len() as u32;
-
-	// Write binary frame: [channel_id: u64 LE][length: u32 BE][payload]
-	stdout.write_all(&channel_id.to_le_bytes())?;
-	stdout.write_all(&length.to_be_bytes())?;
-	stdout.write_all(payload)?;
-	stdout.flush()?;
-
-	Ok(())
-}
+use crate::app::{ResMultiplexer, ViewportStream};
 
 // ============================================================================
 // RESOURCES - for communication between Main World and Render World
@@ -361,6 +328,7 @@ fn save_captured_frames(
 	mut frame_counter: Local<u32>,
 	mut last_frame_time: Local<Option<std::time::Instant>>,
 	mut last_frame_hash: Local<Option<u64>>,
+	viewport_stream: Res<ViewportStream>,
 ) {
 	// Throttle to ~60 FPS for output
 	let now = std::time::Instant::now();
@@ -399,6 +367,9 @@ fn save_captured_frames(
 		}
 	}
 	*last_frame_hash = Some(current_hash);
+
+	// Clone sender для використання в потоці
+	let viewport_sender = viewport_stream.tx.clone();
 
 	// Offload encoding to separate thread to avoid blocking main thread
 	std::thread::spawn(move || {
@@ -446,7 +417,7 @@ fn save_captured_frames(
 		use base64::{engine::general_purpose, Engine as _};
 		let base64_data = general_purpose::STANDARD.encode(jpeg_bytes.into_inner());
 
-		let _ = write_frame_to_multiplexer(&base64_data);
+		let _ = viewport_sender.send(base64_data);
 	});
 
 	*frame_counter += 1;

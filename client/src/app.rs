@@ -1,4 +1,8 @@
-use std::time::Duration;
+use std::{
+	io::{stdin, stdout, Stdin, Stdout},
+	process::{},
+	time::Duration,
+};
 
 use bevy::{
 	app::{PluginGroupBuilder, ScheduleRunnerPlugin},
@@ -8,7 +12,14 @@ use bevy::{
 	window::ExitCondition,
 	winit::WinitPlugin,
 };
+use bridge::{
+	codec::{base64::Base64Codec},
+	connection::Connection,
+	multiplexer::Multiplexer,
+	protocol::{frame_stream::FrameStreamProtocol},
+};
 use clap::Parser;
+use crossbeam_channel::{unbounded, Receiver, Sender};
 
 use crate::{frame_capture::FrameCapturePlugin, BrpProtocolPlugin};
 
@@ -68,6 +79,17 @@ pub fn setup_editor_camera(mut cameras: Query<(Entity, &mut Camera), With<Editor
 	);
 }
 
+#[derive(Resource)]
+pub struct ResMultiplexer {
+	pub multiplexer: Multiplexer<Stdin, Stdout>,
+}
+
+#[derive(Resource)]
+pub struct ViewportStream {
+	pub rx: Receiver<String>,
+	pub tx: Sender<String>,
+}
+
 pub trait EditorApp {
 	fn with_default_plugins(&mut self, default_plugins: impl IntoEditorPluginGroup) -> &mut Self;
 	fn with_editor_plugins(&mut self) -> &mut Self;
@@ -79,12 +101,42 @@ pub trait EditorApp {
 impl EditorApp for App {
 	fn with_editor_plugins(&mut self) -> &mut Self {
 		if self.is_editor_mode() {
+			let mut multiplexer = Multiplexer::new(stdin(), stdout());
+
+			let viewport_reader = multiplexer.register_for_type::<FrameStreamProtocol>();
+			let viewport_writer = multiplexer.get_writer_for_type::<FrameStreamProtocol>();
+
+			multiplexer.start();
+
+			let (viewport_sender, viewport_receiver) = unbounded::<String>();
+
+			let vr = viewport_receiver.clone();
+			std::thread::spawn(move || {
+				let mut viewport_stream = Connection::new(Base64Codec, viewport_reader, viewport_writer);
+
+				while let Ok(msg) = vr.recv() {
+					viewport_stream.send(msg);
+				}
+			});
+
+			// let mouse_stream = Connection::new(
+			// 	JsonCodec,
+			// 	multiplexer.register_for_type::<CameraInputProtocol>(),
+			// 	multiplexer.get_writer_for_type::<CameraInputProtocol>(),
+			// );
+			// let (_, mouse_receiver) = unbounded();
+
 			self.add_plugins(RemotePlugin::default())
 				.add_plugins(ScheduleRunnerPlugin::run_loop(
 					// Run 60 times per second.
 					Duration::from_secs_f64(1.0 / 60.0),
 				))
 				.add_plugins((FrameCapturePlugin, BrpProtocolPlugin))
+				.insert_resource(ResMultiplexer { multiplexer })
+				.insert_resource(ViewportStream {
+					rx: viewport_receiver.clone(),
+					tx: viewport_sender,
+				})
 				.add_systems(PostStartup, setup_editor_camera);
 		}
 		self
