@@ -1,6 +1,5 @@
 use std::{
 	io::{stdin, stdout, Stdin, Stdout},
-	process::{},
 	time::Duration,
 };
 
@@ -13,19 +12,27 @@ use bevy::{
 	winit::WinitPlugin,
 };
 use bridge::{
-	codec::{base64::Base64Codec},
+	codec::{base64::Base64Codec, json::JsonCodec},
 	connection::Connection,
 	multiplexer::Multiplexer,
-	protocol::{frame_stream::FrameStreamProtocol},
+	protocol::{camera::CameraInputProtocol, frame_stream::FrameStreamProtocol},
 };
 use clap::Parser;
 use crossbeam_channel::{unbounded, Receiver, Sender};
+use serde::{Deserialize, Serialize};
 
 use crate::{frame_capture::FrameCapturePlugin, BrpProtocolPlugin};
 
 /// Marker component from camera to render game to editor viewport
 #[derive(Component)]
 pub struct EditorCamera;
+
+/// Stores the camera rotation as Euler angles (in radians)
+#[derive(Component)]
+pub struct CameraRotation {
+	pub pitch: f32, // rotation around X axis (up/down)
+	pub yaw: f32,   // rotation around Y axis (left/right)
+}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -51,11 +58,18 @@ impl IntoEditorPluginGroup for PluginGroupBuilder {
 	}
 }
 
-pub fn setup_editor_camera(mut cameras: Query<(Entity, &mut Camera), With<EditorCamera>>, mut images: ResMut<Assets<Image>>) {
+pub fn setup_editor_camera(
+	mut commands: Commands,
+	mut cameras: Query<(Entity, &mut Camera), With<EditorCamera>>,
+	mut images: ResMut<Assets<Image>>,
+) {
 	let Ok((entity, mut camera)) = cameras.single_mut() else {
 		eprintln!("⚠️  Warning: No EditorCamera found or multiple cameras marked with EditorCamera");
 		return;
 	};
+
+	// Initialize camera rotation component
+	commands.entity(entity).insert(CameraRotation { pitch: 0.0, yaw: 0.0 });
 
 	let size = bevy::render::render_resource::Extent3d {
 		width: 640,
@@ -79,6 +93,46 @@ pub fn setup_editor_camera(mut cameras: Query<(Entity, &mut Camera), With<Editor
 	);
 }
 
+pub fn controll_editor_camera(
+	controls_stream: Res<ControlsStream>,
+	mut cameras: Query<(Entity, &mut Transform, &mut CameraRotation), With<EditorCamera>>,
+) {
+	let Ok((entity, mut transform, mut rotation)) = cameras.single_mut() else {
+		eprintln!("⚠️  Warning: No EditorCamera found or multiple cameras marked with EditorCamera");
+		return;
+	};
+
+	while let Ok(json_str) = controls_stream.rx.try_recv() {
+		info!("🎮 Controlling editor camera {:?} with data: {}", entity, json_str);
+		match serde_json::from_str::<ControlsEvent>(&json_str) {
+			Ok(event) => {
+				// Sensitivity factor (smaller = less sensitive)
+				let sensitivity = 0.01;
+
+				// Update Euler angles
+				rotation.yaw -= event.x * sensitivity; // horizontal mouse movement
+				rotation.pitch -= event.y * sensitivity; // vertical mouse movement
+
+				// Clamp pitch to avoid gimbal lock
+				rotation.pitch = rotation
+					.pitch
+					.clamp(-std::f32::consts::FRAC_PI_2 + 0.01, std::f32::consts::FRAC_PI_2 - 0.01);
+
+				// Convert Euler angles to quaternion
+				transform.rotation = Quat::from_euler(EulerRot::YXZ, rotation.yaw, rotation.pitch, 0.0);
+
+				info!(
+					"✅ Camera rotation applied - pitch: {:.2}, yaw: {:.2}",
+					rotation.pitch, rotation.yaw
+				);
+			}
+			Err(e) => {
+				eprintln!("❌ Failed to parse camera control JSON: {:?}", e);
+			}
+		}
+	}
+}
+
 #[derive(Resource)]
 pub struct ResMultiplexer {
 	pub multiplexer: Multiplexer<Stdin, Stdout>,
@@ -90,6 +144,17 @@ pub struct ViewportStream {
 	pub tx: Sender<String>,
 }
 
+#[derive(Resource)]
+pub struct ControlsStream {
+	pub rx: Receiver<String>,
+	pub tx: Sender<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ControlsEvent {
+	x: f32,
+	y: f32,
+}
 pub trait EditorApp {
 	fn with_default_plugins(&mut self, default_plugins: impl IntoEditorPluginGroup) -> &mut Self;
 	fn with_editor_plugins(&mut self) -> &mut Self;
@@ -119,12 +184,33 @@ impl EditorApp for App {
 				}
 			});
 
-			// let mouse_stream = Connection::new(
-			// 	JsonCodec,
-			// 	multiplexer.register_for_type::<CameraInputProtocol>(),
-			// 	multiplexer.get_writer_for_type::<CameraInputProtocol>(),
-			// );
-			// let (_, mouse_receiver) = unbounded();
+			let controls_reader = multiplexer.register_for_type::<CameraInputProtocol>();
+			let controls_writer = multiplexer.get_writer_for_type::<CameraInputProtocol>();
+			let (controls_sender, controls_receiver) = unbounded::<String>();
+			std::thread::spawn({
+				let controls_sender = controls_sender.clone();
+				move || {
+					let mut camera_stream = Connection::new(JsonCodec, controls_reader, controls_writer);
+					loop {
+						match camera_stream.reader.recv_timeout(std::time::Duration::from_millis(100)) {
+							Ok(data) => match String::from_utf8(data) {
+								Ok(json_str) => {
+									info!("📹 Camera event received: {}", json_str);
+									controls_sender.send(json_str).unwrap();
+								}
+								Err(e) => eprintln!("❌ Invalid UTF-8 in camera event: {:?}", e),
+							},
+							Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+								continue;
+							}
+							Err(_) => {
+								eprintln!("❌ Camera stream disconnected");
+								break;
+							}
+						}
+					}
+				}
+			});
 
 			self.add_plugins(RemotePlugin::default())
 				.add_plugins(ScheduleRunnerPlugin::run_loop(
@@ -137,7 +223,12 @@ impl EditorApp for App {
 					rx: viewport_receiver.clone(),
 					tx: viewport_sender,
 				})
-				.add_systems(PostStartup, setup_editor_camera);
+				.insert_resource(ControlsStream {
+					rx: controls_receiver.clone(),
+					tx: controls_sender,
+				})
+				.add_systems(PostStartup, setup_editor_camera)
+				.add_systems(Update, controll_editor_camera);
 		}
 		self
 	}

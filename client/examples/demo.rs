@@ -24,7 +24,6 @@ fn main() {
 	)
 	.with_editor_plugins()
 	.add_systems(Startup, (load_scene, add_meshes))
-	.add_systems(Update, rotate_cube)
 	.run();
 }
 

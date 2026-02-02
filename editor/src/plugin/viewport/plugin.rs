@@ -1,3 +1,4 @@
+use bridge::codec::json::JsonCodec;
 use bridge::protocol::camera::CameraInputProtocol;
 use dioxus::prelude::*;
 
@@ -71,21 +72,35 @@ fn entry() -> Element {
 	let mut registry = use_context::<Signal<PluginRegistry>>();
 	let mut multiplexer = use_context::<Signal<Option<Multiplexer<ChildStdout, ChildStdin>>>>();
 	let mut frame_stream = use_context::<Signal<Option<Arc<Mutex<FrameStreamProtocol>>>>>();
+	let mut controls_stream = use_context::<Signal<Option<Arc<Mutex<CameraInputProtocol>>>>>();
 
 	// Register channel as soon as multiplexer is available, not waiting for viewport to open
 	use_effect(move || {
 		let has_mux = multiplexer.read().is_some();
 		let has_no_stream = frame_stream.read().is_none();
-
-		if has_mux && has_no_stream {
-			if let Some(mux) = multiplexer.write().as_mut() {
-				info!("Registering FrameStream channel");
-				let connection = Connection::new(
-					Base64Codec,
-					mux.register_for_type::<FrameStreamProtocol>(),
-					mux.get_writer_for_type::<FrameStreamProtocol>(),
-				);
-				frame_stream.set(Some(Arc::new(Mutex::new(FrameStreamProtocol { connection }))));
+		let has_no_controls = controls_stream.read().is_none();
+		if has_mux {
+			if has_no_stream {
+				if let Some(mux) = multiplexer.write().as_mut() {
+					info!("Registering FrameStream channel");
+					let connection = Connection::new(
+						Base64Codec,
+						mux.register_for_type::<FrameStreamProtocol>(),
+						mux.get_writer_for_type::<FrameStreamProtocol>(),
+					);
+					frame_stream.set(Some(Arc::new(Mutex::new(FrameStreamProtocol { connection }))));
+				}
+			}
+			if has_no_controls {
+				if let Some(mux) = multiplexer.write().as_mut() {
+					info!("Registering Camera channel");
+					let connection = Connection::new(
+						JsonCodec,
+						mux.register_for_type::<CameraInputProtocol>(),
+						mux.get_writer_for_type::<CameraInputProtocol>(),
+					);
+					controls_stream.set(Some(Arc::new(Mutex::new(CameraInputProtocol { connection }))));
+				}
 			}
 		}
 	});
