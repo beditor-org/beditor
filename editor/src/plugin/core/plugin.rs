@@ -21,7 +21,7 @@ const PLUGIN_NAME: &str = "Core";
 lazy_static! {
 	//	workspaces
 	pub static ref CORE_WELCOME_WORKSPACE: ResourceId = ResourceId::workspace(PLUGIN_NAME, "welcome");
-	pub static ref CORE_EDITOR_WORKSPACE: ResourceId = ResourceId::workspace(PLUGIN_NAME, "editor");
+	pub static ref CORE_SCENE_EDITOR_WORKSPACE: ResourceId = ResourceId::workspace(PLUGIN_NAME, "scene_editor");
 	pub static ref CORE_PLAYTEST_WORKSPACE: ResourceId = ResourceId::workspace(PLUGIN_NAME, "playtest");
 	//	panels
 	pub static ref CORE_STATUS_BAR_PANEL: ResourceId = ResourceId::panel(PLUGIN_NAME, "status_bar");
@@ -30,12 +30,6 @@ lazy_static! {
 }
 
 pub struct CorePlugin;
-
-pub enum CoreWorkspace {
-	Welcome,
-	Editor,
-	Playtest,
-}
 
 pub fn core_plugin() -> Plugin {
 	Plugin {
@@ -53,7 +47,7 @@ pub fn core_plugin() -> Plugin {
 				tools: vec![],
 				workspaces: vec![
 					CORE_WELCOME_WORKSPACE.clone(),
-					CORE_EDITOR_WORKSPACE.clone(),
+					CORE_SCENE_EDITOR_WORKSPACE.clone(),
 					CORE_PLAYTEST_WORKSPACE.clone(),
 				],
 			}
@@ -67,7 +61,7 @@ pub fn core_plugin() -> Plugin {
 				tools: vec![],
 				workspaces: vec![
 					CORE_WELCOME_WORKSPACE.clone(),
-					CORE_EDITOR_WORKSPACE.clone(),
+					CORE_SCENE_EDITOR_WORKSPACE.clone(),
 					CORE_PLAYTEST_WORKSPACE.clone(),
 				],
 			}
@@ -94,7 +88,7 @@ pub fn core_plugin() -> Plugin {
 				panels: vec![],
 			},
 			Workspace {
-				name: CORE_EDITOR_WORKSPACE.name().to_string(),
+				name: CORE_SCENE_EDITOR_WORKSPACE.name().to_string(),
 				panels: vec![],
 			},
 			Workspace {
