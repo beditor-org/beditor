@@ -2,9 +2,9 @@ pub mod asset_browser;
 pub mod core;
 pub mod dumy;
 pub mod game_process;
+// pub mod scene_editor;
 pub mod transport;
 pub mod viewport;
-
 use std::collections::HashMap;
 
 use dioxus::prelude::*;
