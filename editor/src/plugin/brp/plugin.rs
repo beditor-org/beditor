@@ -38,10 +38,10 @@ fn entry() -> Element {
 				info!("Game process is attached, setting up BRP Protocol");
 				let connection = Connection::new(
 					JsonCodec,
-					multiplexer.register_for_type::<BrpProtocol>(),
-					multiplexer.get_writer_for_type::<BrpProtocol>(),
+					multiplexer.register_for_type::<BrpProtocol<ChildStdin>>(),
+					multiplexer.get_writer_for_type::<BrpProtocol<ChildStdin>>(),
 				);
-				let mut protocol = BrpProtocol::new(connection);
+				let mut protocol = BrpProtocol::<ChildStdin>::new(connection);
 				protocol.list_entities();
 
 				// connection.send(&"Hello from BRP Plugin".to_string()).unwrap();

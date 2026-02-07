@@ -1,18 +1,19 @@
-use std::{io::Stdout, process::ChildStdin};
+use std::io::Write;
 
 use crate::{
 	codec::{json::JsonCodec, Codec},
 	connection::Connection,
 	protocol::Protocol,
+	TypeName,
 };
 
-pub struct BrpProtocol {
-	connection: Connection<JsonCodec, ChildStdin>,
+pub struct BrpProtocol<W: Write> {
+	pub connection: Connection<JsonCodec, W>,
 }
 
-impl Protocol for BrpProtocol {
+impl<W: Write> Protocol for BrpProtocol<W> {
 	type Codec = JsonCodec;
-	type Writer = ChildStdin;
+	type Writer = W;
 
 	fn handle(&self, message: <Self::Codec as Codec>::Message) {
 		todo!()
@@ -23,8 +24,8 @@ impl Protocol for BrpProtocol {
 	}
 }
 
-impl BrpProtocol {
-	pub fn new(connection: Connection<JsonCodec, ChildStdin>) -> Self {
+impl<W: Write> BrpProtocol<W> {
+	pub fn new(connection: Connection<JsonCodec, W>) -> Self {
 		Self { connection }
 	}
 
@@ -33,25 +34,8 @@ impl BrpProtocol {
 	}
 }
 
-pub struct GameBrpProtocol {
-	pub connection: Connection<JsonCodec, Stdout>,
-}
-
-impl GameBrpProtocol {
-	pub fn new(connection: Connection<JsonCodec, Stdout>) -> Self {
-		Self { connection }
-	}
-}
-
-impl Protocol for GameBrpProtocol {
-	type Codec = JsonCodec;
-	type Writer = Stdout;
-
-	fn handle(&self, message: <Self::Codec as Codec>::Message) {
-		todo!()
-	}
-
-	fn connection(&mut self) -> &mut Connection<Self::Codec, Self::Writer> {
-		&mut self.connection
+impl<W: Write> TypeName for BrpProtocol<W> {
+	fn type_name() -> &'static str {
+		"bridge::protocol::brp::BrpProtocol"
 	}
 }

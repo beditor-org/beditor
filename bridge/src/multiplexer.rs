@@ -11,6 +11,8 @@ use std::{
 
 use tracing::{error, info_span, warn};
 
+use crate::TypeName;
+
 /// Frame format: [channel_id: u64 (8 bytes)][length: u32 BE (4 bytes)][payload: bytes]
 const HEADER_SIZE: usize = 12;
 
@@ -36,8 +38,8 @@ impl<R: Read + Send + 'static, W: Write + Send + 'static> Multiplexer<R, W> {
 
 	/// Generate a unique channel ID from a type using type name hash
 	/// This is stable across different processes/binaries
-	pub fn channel_id_for_type<T: 'static>() -> u64 {
-		let type_name = std::any::type_name::<T>();
+	pub fn channel_id_for_type<T: TypeName>() -> u64 {
+		let type_name = T::type_name();
 		let mut hasher = DefaultHasher::new();
 		type_name.hash(&mut hasher);
 		let id = hasher.finish();
@@ -46,14 +48,14 @@ impl<R: Read + Send + 'static, W: Write + Send + 'static> Multiplexer<R, W> {
 	}
 
 	/// Register a protocol channel using its type as the channel ID
-	pub fn register_for_type<T: 'static>(&self) -> Receiver<Vec<u8>> {
+	pub fn register_for_type<T: TypeName>(&self) -> Receiver<Vec<u8>> {
 		let channel_id = Self::channel_id_for_type::<T>();
-		tracing::info!("Registering channel for {}: {}", std::any::type_name::<T>(), channel_id);
+		tracing::info!("Registering channel for {}: {}", T::type_name(), channel_id);
 		self.register_channel(channel_id)
 	}
 
 	/// Get a writer for a protocol using its type as the channel ID
-	pub fn get_writer_for_type<T: 'static>(&self) -> ChannelWriter<W> {
+	pub fn get_writer_for_type<T: TypeName>(&self) -> ChannelWriter<W> {
 		self.get_writer(Self::channel_id_for_type::<T>())
 	}
 
