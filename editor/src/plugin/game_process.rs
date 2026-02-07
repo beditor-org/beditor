@@ -13,6 +13,8 @@ use crate::{
 };
 
 pub struct RenderViewportEvent {}
+pub struct GameProcessAttachedEvent {}
+pub struct GameProcessDetachedEvent {}
 pub struct GameProcessStartedEvent {
 	pub child: Arc<Child>,
 	pub stdin: Cell<Option<ChildStdin>>,
@@ -107,6 +109,7 @@ fn entry() -> Element {
 				});
 				// Switch to editor workspace
 				event_clone.publish(SwitchWorkspaceEvent(CORE_SCENE_EDITOR_WORKSPACE.clone()));
+				event_clone.publish(GameProcessAttachedEvent {});
 			});
 		});
 	});

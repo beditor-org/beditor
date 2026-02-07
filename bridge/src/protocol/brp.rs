@@ -1,6 +1,4 @@
-use std::io::Stdout;
-
-use bevy::ecs::resource::Resource;
+use std::{io::Stdout, process::ChildStdin};
 
 use crate::{
 	codec::{json::JsonCodec, Codec},
@@ -8,13 +6,13 @@ use crate::{
 	protocol::Protocol,
 };
 
-pub struct EditorBrpProtocol {
-	connection: Connection<JsonCodec, Stdout>,
+pub struct BrpProtocol {
+	connection: Connection<JsonCodec, ChildStdin>,
 }
 
-impl Protocol for EditorBrpProtocol {
+impl Protocol for BrpProtocol {
 	type Codec = JsonCodec;
-	type Writer = Stdout;
+	type Writer = ChildStdin;
 
 	fn handle(&self, message: <Self::Codec as Codec>::Message) {
 		todo!()
@@ -25,9 +23,13 @@ impl Protocol for EditorBrpProtocol {
 	}
 }
 
-impl EditorBrpProtocol {
-	pub fn list_entities(&self) {
-		todo!()
+impl BrpProtocol {
+	pub fn new(connection: Connection<JsonCodec, ChildStdin>) -> Self {
+		Self { connection }
+	}
+
+	pub fn list_entities(&mut self) {
+		self.connection.send(serde_json::Value::String("list_entities".to_string()));
 	}
 }
 
