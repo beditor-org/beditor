@@ -4,11 +4,11 @@ use std::{
 	io::{BufReader, Read, Write},
 	sync::{
 		atomic::{AtomicU64, Ordering},
-		mpsc::{channel, Receiver, Sender},
 		Arc, Mutex, RwLock,
 	},
 };
 
+use flume::{Receiver, Sender};
 use tracing::{error, info_span, warn};
 
 use crate::TypeName;
@@ -61,7 +61,7 @@ impl<R: Read + Send + 'static, W: Write + Send + 'static> Multiplexer<R, W> {
 
 	/// Register a protocol on a specific channel
 	pub fn register_channel(&self, channel_id: u64) -> Receiver<Vec<u8>> {
-		let (tx, rx) = channel();
+		let (tx, rx) = flume::unbounded();
 		self.channels.write().unwrap().insert(channel_id, tx);
 		rx
 	}

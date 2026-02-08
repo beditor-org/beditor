@@ -1,4 +1,6 @@
-use std::{io::Write, sync::mpsc::Receiver};
+use anyhow::{bail, Result};
+use flume::Receiver;
+use std::io::Write;
 
 use crate::{codec::Codec, multiplexer::ChannelWriter};
 
@@ -12,7 +14,7 @@ impl<C: Codec, W: Write> Connection<C, W> {
 	pub fn new(codec: C, reader: Receiver<Vec<u8>>, writer: ChannelWriter<W>) -> Self {
 		Self { codec, reader, writer }
 	}
-	pub fn send(&mut self, message: C::Message) {
+	pub fn send(&self, message: C::Message) {
 		let encoded = self.codec.encode(&message);
 		let _ = self.writer.send(&encoded);
 	}
@@ -23,8 +25,18 @@ impl<C: Codec, W: Write> Connection<C, W> {
 				Ok(message) => Ok(Some(message)),
 				Err(e) => Err(Box::new(e)),
 			},
-			Err(std::sync::mpsc::TryRecvError::Empty) => Ok(None),
+			Err(flume::TryRecvError::Empty) => Ok(None),
 			Err(e) => Err(Box::new(e)),
+		}
+	}
+
+	pub async fn recv_async(&self) -> Result<C::Message> {
+		match self.reader.recv_async().await {
+			Ok(data) => match self.codec.decode(&data) {
+				Ok(message) => Ok(message),
+				Err(e) => bail!(e),
+			},
+			Err(e) => bail!(e),
 		}
 	}
 }

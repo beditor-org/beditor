@@ -18,7 +18,8 @@ use bridge::{
 	protocol::{camera::CameraInputProtocol, frame_stream::FrameStreamProtocol},
 };
 use clap::Parser;
-use crossbeam_channel::{unbounded, Receiver, Sender};
+
+use flume::{unbounded, Receiver, RecvTimeoutError, Sender};
 use serde::{Deserialize, Serialize};
 
 use crate::{frame_capture::FrameCapturePlugin, BrpProtocolPlugin};
@@ -200,7 +201,7 @@ impl EditorApp for App {
 								}
 								Err(e) => eprintln!("❌ Invalid UTF-8 in camera event: {:?}", e),
 							},
-							Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+							Err(RecvTimeoutError::Timeout) => {
 								continue;
 							}
 							Err(_) => {

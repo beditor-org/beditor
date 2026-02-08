@@ -12,7 +12,7 @@ impl Protocol for CameraInputProtocol {
 	type Codec = JsonCodec;
 	type Writer = ChildStdin;
 
-	fn connection(&mut self) -> &mut Connection<Self::Codec, Self::Writer> {
-		&mut self.connection
-	}
+	// fn connection(&mut self) -> &mut Connection<Self::Codec, Self::Writer> {
+	// 	&mut self.connection
+	// }
 }

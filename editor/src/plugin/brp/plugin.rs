@@ -1,7 +1,7 @@
 use std::process::{ChildStdin, ChildStdout};
 
 use bridge::{codec::json::JsonCodec, connection::Connection, multiplexer::Multiplexer, protocol::brp::BrpProtocol};
-use dioxus::prelude::*;
+use dioxus::{html::events, prelude::*};
 
 use crate::{
 	event::Events,
@@ -32,6 +32,7 @@ fn entry() -> Element {
 	let mut registry = use_context::<Signal<PluginRegistry>>();
 	let multiplexer = use_context::<Signal<Option<Multiplexer<ChildStdout, ChildStdin>>>>();
 	let mut game_process_attached = use_signal(|| false);
+	let events_clone = events.clone();
 	use_effect(move || {
 		if let Some(multiplexer) = multiplexer.read().as_ref() {
 			if game_process_attached() {
@@ -42,6 +43,12 @@ fn entry() -> Element {
 					multiplexer.get_writer_for_type::<BrpProtocol<ChildStdin>>(),
 				);
 				let mut protocol = BrpProtocol::<ChildStdin>::new(connection);
+				let events = events_clone.clone();
+				protocol.client.add_handler("game_process_ready", move |_| {
+					info!("Received game_process_ready event from BRP Protocol");
+					events.publish(GameProcessAttachedEvent {});
+				});
+
 				protocol.list_entities();
 
 				// connection.send(&"Hello from BRP Plugin".to_string()).unwrap();
@@ -52,7 +59,7 @@ fn entry() -> Element {
 		}
 	});
 
-	use_hook(|| {
+	use_hook(move || {
 		events.subscribe(move |event: &GameProcessAttachedEvent| {
 			game_process_attached.set(true);
 		});

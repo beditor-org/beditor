@@ -5,6 +5,7 @@ use std::{
 
 use bevy::{asset::ron::error, prelude::*};
 use bridge::{connection::Connection, multiplexer::Multiplexer, protocol::brp::BrpProtocol};
+use flume::{Receiver, Sender};
 
 pub fn brp_handler(world: &mut World) {
 	let mut brp = world.get_resource_mut::<BrpConnection>().unwrap();
@@ -24,11 +25,12 @@ pub fn brp_handler(world: &mut World) {
 }
 
 #[derive(Resource)]
-pub struct BrpConnection {
-	connection: Arc<Mutex<BrpProtocol<Stdout>>>,
+pub struct BrpStream {
+	pub rx: Receiver<String>,
+	pub tx: Sender<String>,
 }
 
-pub fn brp_sender(connection: ResMut<BrpConnection>) {}
+pub fn brp_sender(connection: ResMut<BrpStream>) {}
 
 pub struct BrpProtocolPlugin;
 impl Plugin for BrpProtocolPlugin {
@@ -41,8 +43,9 @@ impl Plugin for BrpProtocolPlugin {
 			multiplexer.get_writer_for_type::<BrpProtocol<Stdout>>(),
 		);
 
-		app.add_systems(Update, brp_handler).insert_resource(BrpConnection {
-			connection: Arc::new(Mutex::new(BrpProtocol::<Stdout>::new(connection))),
+		app.add_systems(Update, brp_handler).insert_resource(BrpStream {
+			rx: connection.reader,
+			tx: connection.writer,
 		});
 	}
 }
