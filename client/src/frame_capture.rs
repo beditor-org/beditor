@@ -14,7 +14,7 @@ use bevy::{
 	},
 };
 use bridge::protocol::frame_stream::FrameStreamProtocol;
-use crossbeam_channel::{Receiver, Sender};
+use flume::{bounded, unbounded, Receiver, Sender};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Write};
@@ -45,7 +45,7 @@ pub struct FrameCapturePlugin;
 impl Plugin for FrameCapturePlugin {
 	fn build(&self, app: &mut App) {
 		// Create unbounded channel (no queue size limit)
-		let (sender, receiver) = crossbeam_channel::unbounded();
+		let (sender, receiver) = unbounded();
 
 		// Main World: add receiver and save system
 		app.insert_resource(MainWorldReceiver(receiver))
@@ -285,7 +285,7 @@ fn receive_image_from_buffer(image_copiers: Res<ImageCopiers>, render_device: Re
 
 		// Create channel for async callback
 		// map_async doesn't block - notifies through channel when ready
-		let (s, r) = crossbeam_channel::bounded(1);
+		let (s, r) = bounded(1);
 
 		// Request buffer access (mapping)
 		buffer_slice.map_async(bevy::render::render_resource::MapMode::Read, move |result| match result {
