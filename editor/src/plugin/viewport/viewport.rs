@@ -119,7 +119,7 @@ pub fn Viewport() -> Element {
 						is_dragging.set(true);
 						let coords = evt.page_coordinates();
 						last_mouse_pos.set((coords.x, coords.y));
-						info!("🖱️ Right mouse button pressed - camera control started");
+						trace!("🖱️ Right mouse button pressed - camera control started");
 					}
 				},
 				onmousemove: move |evt| {
@@ -136,14 +136,14 @@ pub fn Viewport() -> Element {
 									y: dy as f64,
 								}).unwrap());
 							// camera_input.lock().unwrap().connection.send();
-							info!("🎥 Camera drag: dx={:.1}, dy={:.1}", dx, dy);
+							trace!("🎥 Camera drag: dx={:.1}, dy={:.1}", dx, dy);
 						}
 					}
 				},
 				onmouseup: move |evt| {
 					if evt.trigger_button() == Some(dioxus::html::input_data::MouseButton::Primary) {
 						is_dragging.set(false);
-						info!("🖱️ Right mouse button released - camera control stopped");
+						trace!("🖱️ Right mouse button released - camera control stopped");
 					}
 				},
 				// Prevent context menu on right click
