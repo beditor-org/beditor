@@ -122,7 +122,7 @@ pub fn controll_editor_camera(
 				// Convert Euler angles to quaternion
 				transform.rotation = Quat::from_euler(EulerRot::YXZ, rotation.yaw, rotation.pitch, 0.0);
 
-				info!(
+				debug!(
 					"✅ Camera rotation applied - pitch: {:.2}, yaw: {:.2}",
 					rotation.pitch, rotation.yaw
 				);
@@ -196,7 +196,7 @@ impl EditorApp for App {
 						match camera_stream.reader.recv_timeout(std::time::Duration::from_millis(100)) {
 							Ok(data) => match String::from_utf8(data) {
 								Ok(json_str) => {
-									info!("📹 Camera event received: {}", json_str);
+									debug!("📹 Camera event received: {}", json_str);
 									controls_sender.send(json_str).unwrap();
 								}
 								Err(e) => eprintln!("❌ Invalid UTF-8 in camera event: {:?}", e),
