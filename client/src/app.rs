@@ -104,7 +104,6 @@ pub fn controll_editor_camera(
 	};
 
 	while let Ok(json_str) = controls_stream.rx.try_recv() {
-		info!("🎮 Controlling editor camera {:?} with data: {}", entity, json_str);
 		match serde_json::from_str::<ControlsEvent>(&json_str) {
 			Ok(event) => {
 				// Sensitivity factor (smaller = less sensitive)

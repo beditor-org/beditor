@@ -9,33 +9,27 @@ pub struct BrpProtocol<W: Write> {
 impl<W: Write> Protocol for BrpProtocol<W> {
 	type Codec = JsonCodec;
 	type Writer = W;
-
-	// fn handle(&self, message: <Self::Codec as Codec>::Message) {
-	// 	todo!()
-	// }
-
-	// fn connection(&mut self) -> &mut Connection<Self::Codec, Self::Writer> {
-	// 	&mut self.connection
-	// }
 }
 
 impl<W: Write + Send + 'static> BrpProtocol<W> {
 	pub fn new(connection: Connection<JsonCodec, W>) -> Self {
 		let mut client = JsonRpcClient::new(connection);
-		client.run();
+		// client.run();
 		Self { client }
 	}
 
 	pub async fn list_entities(&mut self) {
-		let list = self.client.call::<(), serde_json::Value>("list_entities", ()).await;
+		let list = self.client.request::<(), serde_json::Value>("list_entities", ()).await;
 		println!("Entities: {:?}", list);
 	}
 
 	pub async fn ping(&mut self) {
-		let list = self.client.call::<(), serde_json::Value>("ping", ()).await;
+		let list = self.client.request::<(), serde_json::Value>("ping", ()).await;
 	}
 
-	pub fn game_process_ready(&mut self) {}
+	pub fn game_process_ready(&mut self) {
+		let _ = self.client.notify("game_process_ready", ());
+	}
 }
 
 impl<W: Write> TypeName for BrpProtocol<W> {

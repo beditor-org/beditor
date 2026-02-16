@@ -1,27 +1,27 @@
 use std::{
-	io::{stdin, stdout, Stdout},
+	io::{stdin, stdout, Stdin, Stdout},
 	sync::{Arc, Mutex},
 };
 
 use bevy::{asset::ron::error, prelude::*};
-use bridge::{connection::Connection, multiplexer::Multiplexer, protocol::brp::BrpProtocol};
-use flume::{Receiver, Sender};
+use bridge::{codec::json::JsonCodec, connection::Connection, multiplexer::Multiplexer, protocol::brp::BrpProtocol};
+use flume::{unbounded, Receiver, Sender};
 
 pub fn brp_handler(world: &mut World) {
-	let mut brp = world.get_resource_mut::<BrpConnection>().unwrap();
-	while let Ok(data) = brp.connection.lock().unwrap().connection.reader.try_recv() {
-		// let request: RpcRequest = serde_json::from_slice(&data)?;
+	// let mut brp = world.get_resource_mut::<BrpConnection>().unwrap();
+	// while let Ok(data) = brp.connection.lock().unwrap().connection.reader.try_recv() {
+	// let request: RpcRequest = serde_json::from_slice(&data)?;
 
-		// let response = match request.method.as_str() {
-		// 	"bevy/list" => handle_list(world),
-		// 	"custom/foo" => handle_foo(world),
-		// 	_ => {
-		// 		error!("Unknown method: {}", request.method);
-		// 	}
-		// };
+	// let response = match request.method.as_str() {
+	// 	"bevy/list" => handle_list(world),
+	// 	"custom/foo" => handle_foo(world),
+	// 	_ => {
+	// 		error!("Unknown method: {}", request.method);
+	// 	}
+	// };
 
-		// brp.sender.send(&serde_json::to_vec(&response)?)?;
-	}
+	// brp.sender.send(&serde_json::to_vec(&response)?)?;
+	// }
 }
 
 #[derive(Resource)]
@@ -35,18 +35,30 @@ pub fn brp_sender(connection: ResMut<BrpStream>) {}
 pub struct BrpProtocolPlugin;
 impl Plugin for BrpProtocolPlugin {
 	fn build(&self, app: &mut App) {
-		let multiplexer = Multiplexer::new(stdin(), stdout());
+		let runtime = tokio::runtime::Builder::new_current_thread()
+			.enable_all()
+			.build()
+			.expect("Failed to create Tokio runtime")
+			.enter();
+
+		let mut multiplexer = Multiplexer::new(stdin(), stdout());
 
 		let connection = Connection::new(
 			bridge::codec::json::JsonCodec,
 			multiplexer.register_for_type::<BrpProtocol<Stdout>>(),
 			multiplexer.get_writer_for_type::<BrpProtocol<Stdout>>(),
 		);
+		let mut protocol = BrpProtocol::<Stdout>::new(connection);
 
-		app.add_systems(Update, brp_handler).insert_resource(BrpStream {
-			rx: connection.reader,
-			tx: connection.writer,
-		});
+		// Start multiplexer reader thread
+		multiplexer.start();
+
+		// Send ready notification
+		protocol.game_process_ready();
+		eprintln!("✅ BRP Protocol initialized, sent game_process_ready");
+
+		let (tx, rx) = unbounded::<String>();
+		app.add_systems(Update, brp_handler).insert_resource(BrpStream { rx, tx });
 	}
 }
 

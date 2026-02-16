@@ -1,11 +1,11 @@
-use std::{collections::HashMap, io::Write, sync::Arc};
+use std::{collections::HashMap, io::Write, marker::PhantomData, sync::Arc};
 
 use crate::{codec::json::JsonCodec, connection::Connection};
 use anyhow::Result;
 use flume::{unbounded, Sender};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Value};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use tracing::{debug, error, info, warn};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -15,10 +15,44 @@ pub enum JsonRpcMessage {
 	Response(JsonRpcResponse),
 }
 
+pub trait Handler {
+	fn call(&self, params: Value) -> Result<()>;
+}
+
+pub struct SyncHandler<F>(F)
+where
+	F: Fn() + 'static;
+
+impl<F> Handler for SyncHandler<F>
+where
+	F: Fn() + 'static,
+{
+	fn call(&self, _: Value) -> Result<()> {
+		(self.0)();
+		Ok(())
+	}
+}
+
+pub struct SyncHandlerWithParams<P, F>(F, PhantomData<P>)
+where
+	P: DeserializeOwned,
+	F: Fn(P) + 'static;
+
+impl<P: DeserializeOwned, F> Handler for SyncHandlerWithParams<P, F>
+where
+	F: Fn(P) + 'static,
+{
+	fn call(&self, params: Value) -> Result<()> {
+		let params: P = serde_json::from_value(params)?;
+		(self.0)(params);
+		Ok(())
+	}
+}
+
 pub struct JsonRpcClient<W: Write> {
 	connection: Arc<Connection<JsonCodec, W>>,
 	pending: Arc<Mutex<HashMap<u64, Sender<Value>>>>,
-	handlers: HashMap<String, Box<dyn FnMut(Value)>>,
+	handlers: Option<HashMap<String, Box<dyn Handler + Send + Sync>>>,
 	next_id: u64,
 }
 
@@ -26,8 +60,10 @@ pub struct JsonRpcClient<W: Write> {
 pub struct JsonRpcRequest {
 	jsonrpc: String,
 	method: String,
-	params: Value,
-	id: u64,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	params: Option<Value>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	id: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -42,7 +78,7 @@ impl<W: Write + Send + 'static> JsonRpcClient<W> {
 		Self {
 			connection: Arc::new(connection),
 			pending: Arc::new(Mutex::new(HashMap::new())),
-			handlers: HashMap::new(),
+			handlers: Some(HashMap::new()),
 			next_id: 0,
 		}
 	}
@@ -50,6 +86,7 @@ impl<W: Write + Send + 'static> JsonRpcClient<W> {
 	pub fn run(&mut self) {
 		let pending = self.pending.clone();
 		let connection = self.connection.clone();
+		let handlers = Arc::new(RwLock::const_new(self.handlers.take().unwrap()));
 
 		tokio::spawn(async move {
 			loop {
@@ -57,7 +94,14 @@ impl<W: Write + Send + 'static> JsonRpcClient<W> {
 					Ok(message) => {
 						match serde_json::from_value::<JsonRpcMessage>(message) {
 							Ok(JsonRpcMessage::Request(request)) => {
-								debug!("Received request: {:?}", request);
+								info!("Received request: {} with params {:?}", request.method, request.params);
+								if let Some(handler) = handlers.read().await.get(&request.method) {
+									if let Err(err) = handler.call(request.params.unwrap_or(Value::Null)) {
+										error!("Error handling request {}: {:?}", request.method, err);
+									}
+								} else {
+									warn!("No handler registered for method: {}", request.method);
+								}
 							}
 							Ok(JsonRpcMessage::Response(response)) => {
 								debug!("Received response: {:?}", response);
@@ -87,7 +131,7 @@ impl<W: Write + Send + 'static> JsonRpcClient<W> {
 		info!("JSONRpcClient initialized and listening for responses");
 	}
 
-	pub async fn call<P: Serialize, R: DeserializeOwned + Serialize>(&mut self, method: &str, params: P) -> Result<R> {
+	pub async fn request<P: Serialize, R: DeserializeOwned + Serialize>(&mut self, method: &str, params: P) -> Result<R> {
 		self.next_id += 1;
 
 		let request = json!({
@@ -105,10 +149,32 @@ impl<W: Write + Send + 'static> JsonRpcClient<W> {
 		serde_json::from_value::<R>(response).map_err(|e| e.into())
 	}
 
-	pub fn add_handler<F>(&mut self, method: &str, handler: F)
+	pub fn notify<P: Serialize>(&self, method: &str, params: P) {
+		let notification = json!({
+			"jsonrpc": "2.0",
+			"method": method,
+			"params": params,
+		});
+
+		self.connection.send(notification);
+	}
+
+	pub fn handle<F>(&mut self, method: &str, handler: F)
 	where
-		F: FnMut(Value) + 'static,
+		F: Fn() + 'static + Send + Sync,
 	{
-		self.handlers.insert(method.to_string(), Box::new(handler));
+		let f = SyncHandler(handler);
+		let boxed = Box::new(f);
+		self.handlers.as_mut().unwrap().insert(method.to_string(), boxed);
+	}
+
+	pub fn handle_with_params<P: 'static, F>(&mut self, method: &str, handler: F)
+	where
+		P: DeserializeOwned + Sync + Send + 'static,
+		F: Fn(P) + 'static + Send + Sync,
+	{
+		let f = SyncHandlerWithParams(handler, PhantomData);
+		let boxed = Box::new(f);
+		self.handlers.as_mut().unwrap().insert(method.to_string(), boxed);
 	}
 }

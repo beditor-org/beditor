@@ -32,10 +32,12 @@ fn entry() -> Element {
 	let mut registry = use_context::<Signal<PluginRegistry>>();
 	let multiplexer = use_context::<Signal<Option<Multiplexer<ChildStdout, ChildStdin>>>>();
 	let mut game_process_attached = use_signal(|| false);
+	let mut brp_initialized = use_signal(|| false);
 	let events_clone = events.clone();
+
 	use_effect(move || {
 		if let Some(multiplexer) = multiplexer.read().as_ref() {
-			if game_process_attached() {
+			if game_process_attached() && !brp_initialized() {
 				info!("Game process is attached, setting up BRP Protocol");
 				let connection = Connection::new(
 					JsonCodec,
@@ -43,16 +45,26 @@ fn entry() -> Element {
 					multiplexer.get_writer_for_type::<BrpProtocol<ChildStdin>>(),
 				);
 				let mut protocol = BrpProtocol::<ChildStdin>::new(connection);
-				let events = events_clone.clone();
-				protocol.client.add_handler("game_process_ready", move |_| {
-					info!("Received game_process_ready event from BRP Protocol");
-					events.publish(GameProcessAttachedEvent {});
-				});
 
-				protocol.list_entities();
+				protocol.client.handle(
+					"game_process_ready",
+					Box::new(|| {
+						info!("🎮 Received game_process_ready notification from	game!");
+					}),
+				);
 
-				// connection.send(&"Hello from BRP Plugin".to_string()).unwrap();
+				// protocol.client.handle_with_params(
+				// 	"game_process_ready",
+				// 	Box::new(|a: i32| {
+				// 		info!("🎮 Received game_process_ready notification from	game!");
+				// 	}),
+				// );
+
+				// protocol.list_entities();
+
 				info!("✓ BRP Protocol added to multiplexer");
+				protocol.client.run();
+				brp_initialized.set(true);
 			}
 		} else {
 			info!("BRP Plugin: Multiplexer is not available in entry");
@@ -65,6 +77,7 @@ fn entry() -> Element {
 		});
 		events.subscribe(move |event: &GameProcessDetachedEvent| {
 			game_process_attached.set(false);
+			brp_initialized.set(false);
 		});
 		registry.write().plugins.get_mut(PLUGIN_NAME).unwrap().is_initialized = true;
 	});
