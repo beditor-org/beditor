@@ -55,7 +55,7 @@ fn entry() -> Element {
 				// protocol.list_entities();
 
 				info!("✓ BRP Protocol added to multiplexer");
-				protocol.client.run();
+				protocol.client.listen();
 				brp_initialized.set(true);
 			}
 		} else {

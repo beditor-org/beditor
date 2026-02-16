@@ -83,7 +83,7 @@ impl<W: Write + Send + 'static> JsonRpcClient<W> {
 		}
 	}
 
-	pub fn run(&mut self) {
+	pub fn listen(&mut self) {
 		let pending = self.pending.clone();
 		let connection = self.connection.clone();
 		let handlers = Arc::new(RwLock::const_new(self.handlers.take().unwrap()));
