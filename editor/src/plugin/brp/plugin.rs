@@ -52,14 +52,6 @@ fn entry() -> Element {
 						info!("🎮 Received game_process_ready notification from	game!");
 					}),
 				);
-
-				// protocol.client.handle_with_params(
-				// 	"game_process_ready",
-				// 	Box::new(|a: i32| {
-				// 		info!("🎮 Received game_process_ready notification from	game!");
-				// 	}),
-				// );
-
 				// protocol.list_entities();
 
 				info!("✓ BRP Protocol added to multiplexer");
@@ -75,10 +67,10 @@ fn entry() -> Element {
 		events.subscribe(move |event: &GameProcessAttachedEvent| {
 			game_process_attached.set(true);
 		});
-		events.subscribe(move |event: &GameProcessDetachedEvent| {
-			game_process_attached.set(false);
-			brp_initialized.set(false);
-		});
+		// events.subscribe(move |event: &GameProcessDetachedEvent| {
+		// 	game_process_attached.set(false);
+		// 	brp_initialized.set(false);
+		// });
 		registry.write().plugins.get_mut(PLUGIN_NAME).unwrap().is_initialized = true;
 	});
 

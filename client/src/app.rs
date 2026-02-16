@@ -213,11 +213,6 @@ impl EditorApp for App {
 			});
 
 			self.add_plugins(RemotePlugin::default())
-				.add_plugins(ScheduleRunnerPlugin::run_loop(
-					// Run 60 times per second.
-					Duration::from_secs_f64(1.0 / 60.0),
-				))
-				.add_plugins((FrameCapturePlugin, BrpProtocolPlugin))
 				.insert_resource(ResMultiplexer { multiplexer })
 				.insert_resource(ViewportStream {
 					rx: viewport_receiver.clone(),
@@ -227,6 +222,11 @@ impl EditorApp for App {
 					rx: controls_receiver.clone(),
 					tx: controls_sender,
 				})
+				.add_plugins(ScheduleRunnerPlugin::run_loop(
+					// Run 60 times per second.
+					Duration::from_secs_f64(1.0 / 60.0),
+				))
+				.add_plugins((FrameCapturePlugin, BrpProtocolPlugin))
 				.add_systems(PostStartup, setup_editor_camera)
 				.add_systems(Update, controll_editor_camera);
 		}
