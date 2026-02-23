@@ -55,6 +55,7 @@ where
 		let wh: JoinHandle<anyhow::Result<()>> = spawn(async move {
 			while let Ok(data) = receiver.recv_async().await {
 				writer.write_all(&data).await?;
+				writer.flush().await?;
 			}
 			bail!("Sender disconnected")
 		});
