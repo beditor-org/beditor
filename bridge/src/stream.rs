@@ -37,8 +37,8 @@ where
 	}
 
 	pub fn listen(&mut self) -> (JoinHandle<anyhow::Result<()>>, JoinHandle<anyhow::Result<()>>) {
-		let reader = self.reader.take().unwrap();
-		let sender = self._sender.take().unwrap();
+		let reader = self.reader.take().expect("Already listening");
+		let sender = self._sender.take().expect("Already listening");
 		let mut reader_buff = BufReader::new(reader);
 
 		let rh: JoinHandle<anyhow::Result<()>> = spawn(async move {
@@ -50,8 +50,8 @@ where
 			bail!("EOF reached")
 		});
 
-		let receiver = self._receiver.take().unwrap();
-		let mut writer = self.writer.take().unwrap();
+		let receiver = self._receiver.take().expect("Already listening");
+		let mut writer = self.writer.take().expect("Already listening");
 		let wh: JoinHandle<anyhow::Result<()>> = spawn(async move {
 			while let Ok(data) = receiver.recv_async().await {
 				writer.write_all(&data).await?;
