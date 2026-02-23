@@ -17,7 +17,7 @@ lucide-dioxus = { version = "2.44.0", features = ["all-icons"] }
 tracing = "0.1.43"
 
 # Async runtime
-tokio = { version = "1.48.0", features = ["rt"] }
+tokio = { version = "1.48.0", features = ["rt", "io-util"] }
 flume = "0.12.0"
 
 # Serialization
