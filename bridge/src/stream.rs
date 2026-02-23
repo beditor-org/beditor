@@ -60,10 +60,6 @@ where
 		});
 		(rh, wh)
 	}
-
-	pub async fn send(&self, data: Vec<u8>) {
-		self.sender.send(data).unwrap();
-	}
 }
 
 #[cfg(test)]
@@ -94,7 +90,7 @@ mod tests {
 		let mut res = String::new();
 		let mut stream_adapter = StreamAdapter::new(r2, w2);
 		stream_adapter.listen();
-		stream_adapter.send(data.to_vec()).await;
+		stream_adapter.sender.send(data.to_vec()).unwrap();
 		BufReader::new(&mut s1).read_line(&mut res).await.unwrap();
 
 		assert_eq!(res, "foo\n");
