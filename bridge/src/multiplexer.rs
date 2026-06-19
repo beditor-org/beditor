@@ -1,43 +1,53 @@
 use std::{
 	collections::HashMap,
 	hash::{DefaultHasher, Hash, Hasher},
-	io::{BufReader, Read, Write},
 	sync::{
 		atomic::{AtomicU64, Ordering},
-		Arc, Mutex, RwLock,
+		Arc, RwLock,
 	},
 };
 
 use flume::{Receiver, Sender};
-use tracing::{error, info_span, warn};
+use tokio::{
+	io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
+	task::JoinHandle,
+};
+use tracing::{error, warn};
 
-use crate::TypeName;
+use crate::{framer::MuxFrame, TypeName};
 
 /// Frame format: [channel_id: u64 (8 bytes)][length: u32 BE (4 bytes)][payload: bytes]
 const HEADER_SIZE: usize = 12;
 
-pub struct Multiplexer<R: Read + Send + 'static, W: Write + Send + 'static> {
+pub struct Multiplexer<R, W> {
 	pub reader: Option<R>,
-	writer: Arc<Mutex<W>>,
-	// u64 from type name hash - each protocol gets its own channel
+	pub writer: Option<W>,
 	channels: Arc<RwLock<HashMap<u64, Sender<Vec<u8>>>>>,
+	write_tx: Sender<MuxFrame>,
+	write_rx: Receiver<MuxFrame>,
 	pub bytes_sent: Arc<AtomicU64>,
 	pub bytes_received: Arc<AtomicU64>,
 }
 
-impl<R: Read + Send + 'static, W: Write + Send + 'static> Multiplexer<R, W> {
+impl<R, W> Multiplexer<R, W>
+where
+	R: AsyncRead + Unpin + Send + 'static,
+	W: AsyncWrite + Unpin + Send + 'static,
+{
 	pub fn new(reader: R, writer: W) -> Self {
+		let (write_tx, write_rx) = flume::unbounded();
 		Self {
 			reader: Some(reader),
-			writer: Arc::new(Mutex::new(writer)),
+			writer: Some(writer),
 			channels: Arc::new(RwLock::new(HashMap::new())),
+			write_tx,
+			write_rx,
 			bytes_sent: Arc::new(AtomicU64::new(0)),
 			bytes_received: Arc::new(AtomicU64::new(0)),
 		}
 	}
 
 	/// Generate a unique channel ID from a type using type name hash
-	/// This is stable across different processes/binaries
 	pub fn channel_id_for_type<T: TypeName>() -> u64 {
 		let type_name = T::type_name();
 		let mut hasher = DefaultHasher::new();
@@ -47,72 +57,55 @@ impl<R: Read + Send + 'static, W: Write + Send + 'static> Multiplexer<R, W> {
 		id
 	}
 
-	/// Register a protocol channel using its type as the channel ID
 	pub fn register_for_type<T: TypeName>(&self) -> Receiver<Vec<u8>> {
 		let channel_id = Self::channel_id_for_type::<T>();
 		tracing::info!("Registering channel for {}: {}", T::type_name(), channel_id);
 		self.register_channel(channel_id)
 	}
 
-	/// Get a writer for a protocol using its type as the channel ID
-	pub fn get_writer_for_type<T: TypeName>(&self) -> ChannelWriter<W> {
+	pub fn get_writer_for_type<T: TypeName>(&self) -> ChannelWriter {
 		self.get_writer(Self::channel_id_for_type::<T>())
 	}
 
-	/// Register a protocol on a specific channel
 	pub fn register_channel(&self, channel_id: u64) -> Receiver<Vec<u8>> {
 		let (tx, rx) = flume::unbounded();
 		self.channels.write().unwrap().insert(channel_id, tx);
 		rx
 	}
 
-	/// Get writer for sending messages on a channel
-	pub fn get_writer(&self, channel_id: u64) -> ChannelWriter<W> {
-		ChannelWriter {
-			channel_id,
-			writer: Arc::clone(&self.writer),
-		}
+	pub fn get_writer(&self, channel_id: u64) -> ChannelWriter {
+		ChannelWriter { channel_id, tx: self.write_tx.clone() }
 	}
 
-	/// Start multiplexer - spawns reader thread
-	pub fn start(&mut self) {
+	/// Start multiplexer — spawns reader and writer tasks, returns their handles
+	pub fn start(&mut self) -> (JoinHandle<()>, JoinHandle<()>) {
 		let reader = self.reader.take().expect("Multiplexer already started");
+		let writer = self.writer.take().expect("Multiplexer already started");
 		let channels = Arc::clone(&self.channels);
-		let bytes_received = Arc::clone(&self.bytes_received); // Required for thread
+		let bytes_received = Arc::clone(&self.bytes_received);
+		let bytes_sent = Arc::clone(&self.bytes_sent);
+		let write_rx = self.write_rx.clone();
 
-		std::thread::spawn(move || {
-			let reader_type = std::any::type_name::<R>().rsplit("::").next().unwrap_or("Unknown");
-			let writer_type = std::any::type_name::<W>().rsplit("::").next().unwrap_or("Unknown");
-			let span = info_span!("multiplexer", reader = reader_type, writer = writer_type);
-			let _enter = span.enter();
-
+		let reader_handle = tokio::spawn(async move {
 			let mut reader = BufReader::new(reader);
 			let mut header = [0u8; HEADER_SIZE];
 
 			loop {
-				// Read frame header
-				if let Err(e) = reader.read_exact(&mut header) {
+				if let Err(e) = reader.read_exact(&mut header).await {
 					error!("Read error: {}", e);
 					break;
 				}
 
-				// Parse channel_id (u64, 8 bytes) - LITTLE ENDIAN
-				let channel_id = u64::from_le_bytes([
-					header[0], header[1], header[2], header[3], header[4], header[5], header[6], header[7],
-				]);
+				let channel_id = u64::from_le_bytes(header[..8].try_into().unwrap());
+				let length = u32::from_be_bytes(header[8..12].try_into().unwrap()) as usize;
 
-				// Parse length (u32, 4 bytes)
-				let length = u32::from_be_bytes([header[8], header[9], header[10], header[11]]) as usize;
-
-				// Read payload
 				let mut payload = vec![0u8; length];
-				bytes_received.fetch_add(payload.len() as u64, Ordering::Relaxed);
-				if let Err(e) = reader.read_exact(&mut payload) {
+				if let Err(e) = reader.read_exact(&mut payload).await {
 					error!("Payload read error: {}", e);
 					break;
 				}
+				bytes_received.fetch_add(length as u64, Ordering::Relaxed);
 
-				// Route to channel
 				let channels = channels.read().unwrap();
 				if let Some(tx) = channels.get(&channel_id) {
 					if tx.send(payload).is_err() {
@@ -123,24 +116,38 @@ impl<R: Read + Send + 'static, W: Write + Send + 'static> Multiplexer<R, W> {
 				}
 			}
 		});
+
+		let writer_handle = tokio::spawn(async move {
+			let mut writer = writer;
+			while let Ok(frame) = write_rx.recv_async().await {
+				let len = frame.payload.len();
+				let result: std::io::Result<()> = async {
+					writer.write_all(&frame.channel_id.to_le_bytes()).await?;
+					writer.write_all(&(frame.payload.len() as u32).to_be_bytes()).await?;
+					writer.write_all(&frame.payload).await?;
+					writer.flush().await
+				}
+				.await;
+
+				if let Err(e) = result {
+					error!("Write error: {}", e);
+					break;
+				}
+				bytes_sent.fetch_add(len as u64, Ordering::Relaxed);
+			}
+		});
+
+		(reader_handle, writer_handle)
 	}
 }
 
-pub struct ChannelWriter<W: Write> {
+pub struct ChannelWriter {
 	channel_id: u64,
-	writer: Arc<Mutex<W>>,
+	tx: Sender<MuxFrame>,
 }
 
-impl<W: Write> ChannelWriter<W> {
-	pub fn send(&self, data: &[u8]) -> std::io::Result<()> {
-		let mut writer = self.writer.lock().unwrap();
-
-		// Write frame: [channel_id: u64 LE][length: u32 BE][payload]
-		writer.write_all(&self.channel_id.to_le_bytes())?;
-		writer.write_all(&(data.len() as u32).to_be_bytes())?;
-		writer.write_all(data)?;
-		writer.flush()?;
-
-		Ok(())
+impl ChannelWriter {
+	pub fn send(&self, data: Vec<u8>) -> Result<(), flume::SendError<MuxFrame>> {
+		self.tx.send(MuxFrame { channel_id: self.channel_id, payload: data })
 	}
 }

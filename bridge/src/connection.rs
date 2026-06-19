@@ -1,42 +1,56 @@
-use anyhow::{bail, Result};
-use flume::Receiver;
-use std::io::Write;
+use flume::{Receiver, Sender};
 
-use crate::{codec::Codec, multiplexer::ChannelWriter};
+use crate::codec::Codec;
 
-pub struct Connection<C: Codec, W: Write> {
-	codec: C,
-	pub reader: Receiver<Vec<u8>>,
-	writer: ChannelWriter<W>,
+#[derive(Debug)]
+pub enum ConnectionError<E: std::error::Error> {
+	Codec(E),
+	Disconnected,
 }
 
-impl<C: Codec, W: Write> Connection<C, W> {
-	pub fn new(codec: C, reader: Receiver<Vec<u8>>, writer: ChannelWriter<W>) -> Self {
-		Self { codec, reader, writer }
+impl<E: std::error::Error + std::fmt::Display> std::fmt::Display for ConnectionError<E> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			ConnectionError::Codec(e) => write!(f, "Codec error: {}", e),
+			ConnectionError::Disconnected => write!(f, "Channel disconnected"),
+		}
 	}
-	pub fn send(&self, message: C::Message) {
-		let encoded = self.codec.encode(&message);
-		let _ = self.writer.send(&encoded);
-	}
+}
 
-	pub fn try_recv(&mut self) -> Result<Option<C::Message>, Box<dyn std::error::Error>> {
-		match self.reader.try_recv() {
-			Ok(data) => match self.codec.decode(&data) {
-				Ok(message) => Ok(Some(message)),
-				Err(e) => Err(Box::new(e)),
-			},
-			Err(flume::TryRecvError::Empty) => Ok(None),
-			Err(e) => Err(Box::new(e)),
+impl<E: std::error::Error + 'static> std::error::Error for ConnectionError<E> {}
+
+pub struct Connection<C: Codec> {
+	receiver: Receiver<Vec<u8>>,
+	sender: Sender<Vec<u8>>,
+	_codec: std::marker::PhantomData<C>,
+}
+
+impl<C: Codec> Connection<C> {
+	pub fn new(receiver: Receiver<Vec<u8>>, sender: Sender<Vec<u8>>) -> Self {
+		Self {
+			receiver,
+			sender,
+			_codec: std::marker::PhantomData,
 		}
 	}
 
-	pub async fn recv_async(&self) -> Result<C::Message> {
-		match self.reader.recv_async().await {
-			Ok(data) => match self.codec.decode(&data) {
-				Ok(message) => Ok(message),
-				Err(e) => bail!(e),
-			},
-			Err(e) => bail!(e),
+	pub fn send(&self, message: &C::Message) -> Result<(), ConnectionError<C::Error>> {
+		let encoded = C::encode(message);
+		self.sender.send(encoded).map_err(|_| ConnectionError::Disconnected)
+	}
+
+	pub fn try_recv(&self) -> Result<Option<C::Message>, ConnectionError<C::Error>> {
+		match self.receiver.try_recv() {
+			Ok(data) => C::decode(&data).map(Some).map_err(ConnectionError::Codec),
+			Err(flume::TryRecvError::Empty) => Ok(None),
+			Err(flume::TryRecvError::Disconnected) => Err(ConnectionError::Disconnected),
+		}
+	}
+
+	pub async fn recv_async(&self) -> Result<C::Message, ConnectionError<C::Error>> {
+		match self.receiver.recv_async().await {
+			Ok(data) => C::decode(&data).map_err(ConnectionError::Codec),
+			Err(_) => Err(ConnectionError::Disconnected),
 		}
 	}
 }

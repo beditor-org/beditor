@@ -5,6 +5,6 @@ pub trait Codec {
 	type Message;
 	type Error: std::error::Error + Send + Sync + 'static;
 
-	fn encode(&self, msg: &Self::Message) -> Vec<u8>;
-	fn decode(&self, data: &[u8]) -> Result<Self::Message, Self::Error>;
+	fn encode(msg: &Self::Message) -> Vec<u8>;
+	fn decode(data: &[u8]) -> Result<Self::Message, Self::Error>;
 }

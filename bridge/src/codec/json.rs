@@ -25,13 +25,11 @@ impl Codec for JsonCodec {
 	type Message = Value;
 	type Error = JsonError;
 
-	fn encode(&self, msg: &Self::Message) -> Vec<u8> {
-		// Value serialization is infallible - all keys are strings
-		// and all variants represent valid JSON
+	fn encode(msg: &Self::Message) -> Vec<u8> {
 		serde_json::to_vec(msg).expect("Value serialization never fails")
 	}
 
-	fn decode(&self, data: &[u8]) -> Result<Self::Message, Self::Error> {
+	fn decode(data: &[u8]) -> Result<Self::Message, Self::Error> {
 		let s = std::str::from_utf8(data).map_err(JsonError::Utf8)?;
 		serde_json::from_str(s).map_err(JsonError::Json)
 	}
