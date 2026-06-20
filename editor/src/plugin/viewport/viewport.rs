@@ -23,10 +23,9 @@ pub fn Viewport() -> Element {
 	let camera_input = use_context::<Signal<Option<Arc<Mutex<CameraInputProtocol>>>>>();
 	let canvas_id = "viewport-canvas";
 
-	// Hook 1: Mount effect
-	use_hook(|| {
+	// Hook 1: Mount effect — force redraw with last known frame on remount
+	use_effect(move || {
 		viewport_state.write().is_opened = true;
-
 		info!("Viewport component mounted, viewport opened");
 	});
 
@@ -46,19 +45,15 @@ pub fn Viewport() -> Element {
 					if (!canvas) return;
 					
 					const ctx = canvas.getContext('2d', {{ alpha: false }});
-					
-					if (!window.__viewportImage) {{
-						window.__viewportImage = new Image();
-						window.__viewportImage.onload = function() {{
-							if (canvas.width !== this.width || canvas.height !== this.height) {{
-								canvas.width = this.width;
-								canvas.height = this.height;
-							}}
-							ctx.drawImage(this, 0, 0);
-						}};
-					}}
-					
-					window.__viewportImage.src = 'data:image/jpeg;base64,{}';
+					const img = new Image();
+					img.onload = function() {{
+						if (canvas.width !== this.width || canvas.height !== this.height) {{
+							canvas.width = this.width;
+							canvas.height = this.height;
+						}}
+						ctx.drawImage(this, 0, 0);
+					}};
+					img.src = 'data:image/jpeg;base64,{}';
 				}})();
 				"#,
 				canvas_id, data
