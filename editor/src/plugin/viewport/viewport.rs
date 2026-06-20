@@ -3,6 +3,7 @@ use std::{
 	sync::{Arc, Mutex},
 };
 
+use bridge::protocol::camera::MouseEvent;
 use bridge::{
 	codec::json::JsonCodec,
 	connection::Connection,
@@ -16,11 +17,6 @@ use tracing::info;
 
 use crate::plugin::viewport::plugin::ViewportState;
 
-#[derive(Serialize, Deserialize, Debug)]
-struct MouseEvent {
-	x: f64,
-	y: f64,
-}
 pub fn Viewport() -> Element {
 	// ALL HOOKS AT THE TOP - ALWAYS CALLED
 	let mut viewport_state = use_context::<Signal<ViewportState>>();
@@ -131,10 +127,10 @@ pub fn Viewport() -> Element {
 							let dx = coords.x - last_x;
 							let dy = coords.y - last_y;
 							last_mouse_pos.set((coords.x, coords.y));
-							camera_input.lock().unwrap().connection.send(to_value(&MouseEvent {
-									x: dx as f64,
-									y: dy as f64,
-								}).unwrap());
+							camera_input.lock().unwrap().connection.send(&MouseEvent {
+									x: dx as f32,
+									y: dy as f32,
+								});
 							// camera_input.lock().unwrap().connection.send();
 							trace!("🎥 Camera drag: dx={:.1}, dy={:.1}", dx, dy);
 						}

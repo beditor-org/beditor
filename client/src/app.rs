@@ -12,7 +12,10 @@ use bridge::{
 	codec::{base64::Base64Codec, json::JsonCodec},
 	connection::Connection,
 	multiplexer::Multiplexer,
-	protocol::{camera::CameraInputProtocol, frame_stream::FrameStreamProtocol},
+	protocol::{
+		camera::{CameraInputProtocol, MouseEvent},
+		frame_stream::FrameStreamProtocol,
+	},
 };
 use clap::Parser;
 use flume::{unbounded, Receiver, Sender};
@@ -122,7 +125,7 @@ pub struct ViewportStream {
 
 #[derive(Resource)]
 pub struct ControlsStream {
-	mouse: Connection<JsonCodec<ControlsEvent>>,
+	mouse: Connection<JsonCodec<MouseEvent>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -160,7 +163,7 @@ impl EditorApp for App {
 
 			// read camera controls from editor
 			let (controls_reader, controls_writer) = multiplexer.register_for_type::<CameraInputProtocol>();
-			let controls_connection = Connection::<JsonCodec<ControlsEvent>>::new(controls_reader, controls_writer);
+			let controls_connection = Connection::<JsonCodec<MouseEvent>>::new(controls_reader, controls_writer);
 
 			self.add_plugins(RemotePlugin::default())
 				.insert_resource(ResMultiplexer { multiplexer })
