@@ -49,14 +49,12 @@ mod tests {
 
 	#[test]
 	fn test_round_trip() {
-		let codec = Base64Codec;
-
 		// Create some base64-encoded data
 		let original_data = b"Hello, World!";
 		let base64_string = general_purpose::STANDARD.encode(original_data);
 
-		let encoded = codec.encode(&base64_string);
-		let decoded = codec.decode(&encoded).unwrap();
+		let encoded = Base64Codec::encode(&base64_string);
+		let decoded = Base64Codec::decode(&encoded).unwrap();
 
 		assert_eq!(decoded, base64_string);
 
@@ -67,45 +65,40 @@ mod tests {
 
 	#[test]
 	fn test_decode_invalid_utf8() {
-		let codec = Base64Codec;
 		let invalid_utf8 = vec![0xFF, 0xFE, 0xFD];
 
-		let result = codec.decode(&invalid_utf8);
+		let result = Base64Codec::decode(&invalid_utf8);
 		assert!(result.is_err());
 		assert!(matches!(result.unwrap_err(), Base64Error::Utf8(_)));
 	}
 
 	#[test]
 	fn test_decode_invalid_base64() {
-		let codec = Base64Codec;
 		let invalid_base64 = b"not valid base64!!!";
 
-		let result = codec.decode(invalid_base64);
+		let result = Base64Codec::decode(invalid_base64);
 		assert!(result.is_err());
 		assert!(matches!(result.unwrap_err(), Base64Error::Decode(_)));
 	}
 
 	#[test]
 	fn test_empty() {
-		let codec = Base64Codec;
 		let empty = general_purpose::STANDARD.encode(b"");
 
-		let encoded = codec.encode(&empty);
-		let decoded = codec.decode(&encoded).unwrap();
+		let encoded = Base64Codec::encode(&empty);
+		let decoded = Base64Codec::decode(&encoded).unwrap();
 
 		assert_eq!(decoded, empty);
 	}
 
 	#[test]
 	fn test_image_like_data() {
-		let codec = Base64Codec;
-
 		// Simulate PNG-like binary data
 		let png_bytes = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 		let base64_string = general_purpose::STANDARD.encode(&png_bytes);
 
-		let encoded = codec.encode(&base64_string);
-		let decoded = codec.decode(&encoded).unwrap();
+		let encoded = Base64Codec::encode(&base64_string);
+		let decoded = Base64Codec::decode(&encoded).unwrap();
 
 		assert_eq!(decoded, base64_string);
 
