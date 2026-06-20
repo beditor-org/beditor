@@ -57,14 +57,10 @@ where
 		id
 	}
 
-	pub fn register_for_type<T: TypeName>(&self) -> Receiver<Vec<u8>> {
+	pub fn register_for_type<T: TypeName>(&self) -> (Receiver<Vec<u8>>, Sender<Vec<u8>>) {
 		let channel_id = Self::channel_id_for_type::<T>();
 		tracing::info!("Registering channel for {}: {}", T::type_name(), channel_id);
-		self.register_channel(channel_id)
-	}
-
-	pub fn get_writer_for_type<T: TypeName>(&self) -> ChannelWriter {
-		self.get_writer(Self::channel_id_for_type::<T>())
+		(self.register_channel(channel_id), self.get_writer(channel_id))
 	}
 
 	pub fn register_channel(&self, channel_id: u64) -> Receiver<Vec<u8>> {
@@ -73,8 +69,23 @@ where
 		rx
 	}
 
-	pub fn get_writer(&self, channel_id: u64) -> ChannelWriter {
-		ChannelWriter { channel_id, tx: self.write_tx.clone() }
+	pub fn get_writer(&self, channel_id: u64) -> Sender<Vec<u8>> {
+		let (tx, rx) = flume::unbounded::<Vec<u8>>();
+		let write_tx = self.write_tx.clone();
+		std::thread::spawn(move || {
+			while let Ok(data) = rx.recv() {
+				if write_tx
+					.send(MuxFrame {
+						channel_id,
+						payload: data,
+					})
+					.is_err()
+				{
+					break;
+				}
+			}
+		});
+		tx
 	}
 
 	/// Start multiplexer — spawns reader and writer tasks, returns their handles
@@ -138,16 +149,5 @@ where
 		});
 
 		(reader_handle, writer_handle)
-	}
-}
-
-pub struct ChannelWriter {
-	channel_id: u64,
-	tx: Sender<MuxFrame>,
-}
-
-impl ChannelWriter {
-	pub fn send(&self, data: Vec<u8>) -> Result<(), flume::SendError<MuxFrame>> {
-		self.tx.send(MuxFrame { channel_id: self.channel_id, payload: data })
 	}
 }
