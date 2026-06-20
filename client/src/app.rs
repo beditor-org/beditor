@@ -142,16 +142,25 @@ pub trait EditorApp {
 impl EditorApp for App {
 	fn with_editor_plugins(&mut self) -> &mut Self {
 		if self.is_editor_mode() {
+			let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
+			let _guard = rt.enter();
 			let mut multiplexer = Multiplexer::new(stdin(), stdout());
 			multiplexer.start();
 
 			let viewport = multiplexer.register_protocol::<FrameStreamProtocol>();
 			let controls = multiplexer.register_protocol::<CameraInputProtocol>();
 
+			// Keep runtime alive for the duration of the app
+			std::mem::forget(rt);
+
 			self.add_plugins(RemotePlugin::default())
 				.insert_resource(ResMultiplexer { multiplexer })
-				.insert_resource(ViewportStream { viewport: viewport.connection })
-				.insert_resource(ControlsStream { mouse: controls.connection })
+				.insert_resource(ViewportStream {
+					viewport: viewport.connection,
+				})
+				.insert_resource(ControlsStream {
+					mouse: controls.connection,
+				})
 				.add_plugins(ScheduleRunnerPlugin::run_loop(
 					// Run 60 times per second.
 					Duration::from_secs_f64(1.0 / 60.0),
@@ -165,8 +174,13 @@ impl EditorApp for App {
 
 	fn with_default_plugins(&mut self, default_plugins: impl IntoEditorPluginGroup) -> &mut Self {
 		if self.is_editor_mode() {
+			let asset_path = std::env::var("BEDITOR_ASSET_PATH").unwrap_or_else(|_| "assets".to_string());
 			self.add_plugins(
 				DefaultPlugins
+					.set(AssetPlugin {
+						file_path: asset_path,
+						..default()
+					})
 					.set(ImagePlugin::default_nearest())
 					// Not strictly necessary, as the inclusion of ScheduleRunnerPlugin below
 					// replaces the bevy_winit app runner and so a window is never created.

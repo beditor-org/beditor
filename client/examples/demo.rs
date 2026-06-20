@@ -18,7 +18,7 @@ fn main() {
 				..default()
 			})
 			.set(AssetPlugin {
-				file_path: "examples".to_string(),
+				file_path: "../../../client/examples".to_string(),
 				..default()
 			}),
 	)

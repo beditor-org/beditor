@@ -148,8 +148,12 @@ impl GameProcessManager {
 			bail!("Process already running");
 		}
 
+		let asset_path = std::env::current_dir()
+			.map(|cwd| cwd.join("client/examples").to_string_lossy().to_string())
+			.unwrap_or_else(|_| "assets".to_string());
 		let mut child = Command::new(&project_path)
 			.arg("--editor-mode")
+			.env("BEDITOR_ASSET_PATH", &asset_path)
 			.stdin(Stdio::piped())
 			.stdout(Stdio::piped())
 			.stderr(Stdio::inherit())

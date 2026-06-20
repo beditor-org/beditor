@@ -63,7 +63,7 @@ pub fn Viewport() -> Element {
 	});
 
 	use_effect(move || {
-		let data_opt = frame();
+		let data_opt = viewport_state.read().frame.clone();
 		let data = match data_opt {
 			Some(d) => d,
 			None => return,
