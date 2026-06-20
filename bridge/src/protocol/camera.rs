@@ -1,5 +1,3 @@
-use std::process::ChildStdin;
-
 use serde::{Deserialize, Serialize};
 
 use crate::{codec::json::JsonCodec, connection::Connection, protocol::Protocol, TypeName};
@@ -18,9 +16,7 @@ impl TypeName for CameraInputProtocol {}
 
 impl Protocol for CameraInputProtocol {
 	type Codec = JsonCodec<MouseEvent>;
-	type Writer = ChildStdin;
-
-	// fn connection(&mut self) -> &mut Connection<Self::Codec, Self::Writer> {
-	// 	&mut self.connection
-	// }
+	fn from_connection(connection: Connection<Self::Codec>) -> Self {
+		Self { connection }
+	}
 }

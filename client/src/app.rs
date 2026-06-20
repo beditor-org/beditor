@@ -18,11 +18,10 @@ use bridge::{
 	},
 };
 use clap::Parser;
-use flume::{unbounded, Receiver, Sender};
 use serde::{Deserialize, Serialize};
 use tokio::io::{stdin, stdout, Stdin, Stdout};
 
-use crate::{frame_capture::FrameCapturePlugin, BrpProtocolPlugin};
+use crate::{frame_capture::FrameCapturePlugin, BepPlugin};
 
 /// Marker component from camera to render game to editor viewport
 #[derive(Component)]
@@ -118,14 +117,13 @@ pub struct ResMultiplexer {
 }
 
 #[derive(Resource)]
-pub struct ViewportStream {
-	pub rx: Receiver<String>,
-	pub tx: Sender<String>,
+pub struct ControlsStream {
+	mouse: Connection<JsonCodec<MouseEvent>>,
 }
 
 #[derive(Resource)]
-pub struct ControlsStream {
-	mouse: Connection<JsonCodec<MouseEvent>>,
+pub struct ViewportStream {
+	viewport: Connection<Base64Codec>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -145,40 +143,20 @@ impl EditorApp for App {
 	fn with_editor_plugins(&mut self) -> &mut Self {
 		if self.is_editor_mode() {
 			let mut multiplexer = Multiplexer::new(stdin(), stdout());
-
-			let (viewport_reader, viewport_writer) = multiplexer.register_for_type::<FrameStreamProtocol>();
-
 			multiplexer.start();
 
-			let (viewport_sender, viewport_receiver) = unbounded::<String>();
-
-			let vr = viewport_receiver.clone();
-			std::thread::spawn(move || {
-				let mut viewport_stream = Connection::<Base64Codec>::new(viewport_reader, viewport_writer);
-
-				while let Ok(msg) = vr.recv() {
-					viewport_stream.send(&msg);
-				}
-			});
-
-			// read camera controls from editor
-			let (controls_reader, controls_writer) = multiplexer.register_for_type::<CameraInputProtocol>();
-			let controls_connection = Connection::<JsonCodec<MouseEvent>>::new(controls_reader, controls_writer);
+			let viewport = multiplexer.register_protocol::<FrameStreamProtocol>();
+			let controls = multiplexer.register_protocol::<CameraInputProtocol>();
 
 			self.add_plugins(RemotePlugin::default())
 				.insert_resource(ResMultiplexer { multiplexer })
-				.insert_resource(ViewportStream {
-					rx: viewport_receiver.clone(),
-					tx: viewport_sender,
-				})
-				.insert_resource(ControlsStream {
-					mouse: controls_connection,
-				})
+				.insert_resource(ViewportStream { viewport: viewport.connection })
+				.insert_resource(ControlsStream { mouse: controls.connection })
 				.add_plugins(ScheduleRunnerPlugin::run_loop(
 					// Run 60 times per second.
 					Duration::from_secs_f64(1.0 / 60.0),
 				))
-				.add_plugins((FrameCapturePlugin, BrpProtocolPlugin))
+				.add_plugins((FrameCapturePlugin, BepPlugin))
 				.add_systems(PostStartup, setup_editor_camera)
 				.add_systems(Update, controll_editor_camera);
 		}

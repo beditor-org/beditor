@@ -14,7 +14,7 @@ use tokio::{
 };
 use tracing::{error, warn};
 
-use crate::{framer::MuxFrame, TypeName};
+use crate::{connection::Connection, framer::MuxFrame, protocol::Protocol, TypeName};
 
 /// Frame format: [channel_id: u64 (8 bytes)][length: u32 BE (4 bytes)][payload: bytes]
 const HEADER_SIZE: usize = 12;
@@ -61,6 +61,11 @@ where
 		let channel_id = Self::channel_id_for_type::<T>();
 		tracing::info!("Registering channel for {}: {}", T::type_name(), channel_id);
 		(self.register_channel(channel_id), self.get_writer(channel_id))
+	}
+
+	pub fn register_protocol<T: TypeName + Protocol>(&self) -> T {
+		let (reader, writer) = self.register_for_type::<T>();
+		T::from_connection(Connection::new(reader, writer))
 	}
 
 	pub fn register_channel(&self, channel_id: u64) -> Receiver<Vec<u8>> {

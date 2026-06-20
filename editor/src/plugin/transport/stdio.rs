@@ -1,10 +1,7 @@
 use bridge::multiplexer::Multiplexer;
 use bytesize::ByteSize;
 use dioxus::prelude::*;
-use std::{
-	process::{ChildStdin, ChildStdout},
-	sync::atomic::Ordering,
-};
+use std::sync::atomic::Ordering;
 
 use crate::{
 	event::Events,
@@ -12,6 +9,7 @@ use crate::{
 	tool::ToolPlacement,
 	Tool, ToolAlignment,
 };
+use tokio::process::{ChildStdin, ChildStdout};
 
 pub struct StdioTransportReadyEvent;
 pub struct StdioTransportPlugin;

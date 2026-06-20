@@ -28,12 +28,11 @@ impl Codec for Base64Codec {
 	type Message = String;
 	type Error = Base64Error;
 
-	fn encode(&self, msg: &Self::Message) -> Vec<u8> {
-		// String is already base64, just convert to bytes
+	fn encode(msg: &Self::Message) -> Vec<u8> {
 		msg.as_bytes().to_vec()
 	}
 
-	fn decode(&self, data: &[u8]) -> Result<Self::Message, Self::Error> {
+	fn decode(data: &[u8]) -> Result<Self::Message, Self::Error> {
 		// Convert bytes to UTF-8 string (which should be base64)
 		let s = std::str::from_utf8(data).map_err(Base64Error::Utf8)?;
 

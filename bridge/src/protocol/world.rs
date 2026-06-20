@@ -2,18 +2,18 @@ use serde_json::Value;
 
 use crate::{codec::json::JsonCodec, connection::Connection, protocol::Protocol, TypeName};
 
-pub struct BepProtocol {
+pub struct WorldProtocol {
 	pub connection: Connection<JsonCodec<Value>>,
 }
 
-impl Protocol for BepProtocol {
+impl Protocol for WorldProtocol {
 	type Codec = JsonCodec<Value>;
 	fn from_connection(connection: Connection<Self::Codec>) -> Self {
 		Self::new(connection)
 	}
 }
 
-impl BepProtocol {
+impl WorldProtocol {
 	pub fn new(connection: Connection<JsonCodec<Value>>) -> Self {
 		Self { connection }
 	}
@@ -27,8 +27,8 @@ impl BepProtocol {
 	}
 }
 
-impl TypeName for BepProtocol {
+impl TypeName for WorldProtocol {
 	fn type_name() -> &'static str {
-		"bridge::protocol::bep::BepProtocol"
+		"bridge::protocol::world::WorldProtocol"
 	}
 }

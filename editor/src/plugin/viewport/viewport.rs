@@ -38,18 +38,19 @@ pub fn Viewport() -> Element {
 		if let Some(protocol_arc) = protocol_opt {
 			info!("Starting frame receiver task");
 			let (tx, mut rx) = tokio::sync::watch::channel(None::<String>);
+			tx.send(viewport_state.read().frame.clone());
 
-			std::thread::spawn(move || loop {
-				let result = protocol_arc.lock().unwrap().connection.reader.recv();
-				match result {
-					Ok(data) => {
-						if let Ok(base64_string) = String::from_utf8(data) {
-							let _ = tx.send(Some(base64_string));
-						}
-					}
-					Err(_) => break,
-				}
-			});
+			// std::thread::spawn(move || loop {
+			// 	let result = protocol_arc.lock().unwrap().connection.recv();
+			// 	match result {
+			// 		Ok(data) => {
+			// 			if let Ok(base64_string) = String::from_utf8(data) {
+			// 				let _ = tx.send(Some(base64_string));
+			// 			}
+			// 		}
+			// 		Err(_) => break,
+			// 	}
+			// });
 
 			let mut frame_clone = frame;
 			spawn(async move {

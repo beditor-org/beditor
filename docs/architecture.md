@@ -11,6 +11,8 @@ or pass it to connection
 
 connection is then used in protocols
 
+Protocol is used as a wraper around connection.send. If you don't send anything, you don't need protocol, use Connection instead.
+
 codec + transport flume channels = connection
 
 each protocol shares some boilerplate:

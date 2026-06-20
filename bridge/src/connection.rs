@@ -47,6 +47,13 @@ impl<C: Codec> Connection<C> {
 		}
 	}
 
+	pub fn recv(&self) -> Result<C::Message, ConnectionError<C::Error>> {
+		match self.receiver.recv() {
+			Ok(data) => C::decode(&data).map_err(ConnectionError::Codec),
+			Err(_) => Err(ConnectionError::Disconnected),
+		}
+	}
+
 	pub async fn recv_async(&self) -> Result<C::Message, ConnectionError<C::Error>> {
 		match self.receiver.recv_async().await {
 			Ok(data) => C::decode(&data).map_err(ConnectionError::Codec),

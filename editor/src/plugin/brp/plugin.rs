@@ -1,7 +1,7 @@
-use std::process::{ChildStdin, ChildStdout};
+use tokio::process::{ChildStdin, ChildStdout};
 
-use bridge::{codec::json::JsonCodec, connection::Connection, multiplexer::Multiplexer, protocol::brp::BrpProtocol};
-use dioxus::{html::events, prelude::*};
+use bridge::{multiplexer::Multiplexer, protocol::bep::BepProtocol};
+use dioxus::prelude::*;
 
 use crate::{
 	event::Events,
@@ -32,45 +32,32 @@ fn entry() -> Element {
 	let mut registry = use_context::<Signal<PluginRegistry>>();
 	let multiplexer = use_context::<Signal<Option<Multiplexer<ChildStdout, ChildStdin>>>>();
 	let mut game_process_attached = use_signal(|| false);
-	let mut brp_initialized = use_signal(|| false);
-	let events_clone = events.clone();
+	let mut world_initialized = use_signal(|| false);
 
 	use_effect(move || {
 		if let Some(multiplexer) = multiplexer.read().as_ref() {
-			if game_process_attached() && !brp_initialized() {
-				info!("Game process is attached, setting up BRP Protocol");
-				let connection = Connection::new(
-					JsonCodec,
-					multiplexer.register_for_type::<BrpProtocol<ChildStdin>>(),
-					multiplexer.get_writer_for_type::<BrpProtocol<ChildStdin>>(),
-				);
-				let mut protocol = BrpProtocol::<ChildStdin>::new(connection);
+			if game_process_attached() && !world_initialized() {
+				info!("Game process is attached, setting up World Protocol");
+				let protocol = multiplexer.register_protocol::<BepProtocol>();
 
-				protocol.client.handle(
-					"game_process_ready",
-					Box::new(|| {
-						info!("🎮 Received game_process_ready notification from	game!");
-					}),
-				);
-				// protocol.list_entities();
+				protocol.editor_ready();
+				info!("✓ World Protocol initialized, sent editor_ready");
 
-				info!("✓ BRP Protocol added to multiplexer");
-				protocol.client.listen();
-				brp_initialized.set(true);
+				world_initialized.set(true);
 			}
 		} else {
-			info!("BRP Plugin: Multiplexer is not available in entry");
+			info!("World Plugin: Multiplexer is not available in entry");
 		}
 	});
 
 	use_hook(move || {
-		events.subscribe(move |event: &GameProcessAttachedEvent| {
+		events.subscribe(move |_event: &GameProcessAttachedEvent| {
 			game_process_attached.set(true);
 		});
-		// events.subscribe(move |event: &GameProcessDetachedEvent| {
-		// 	game_process_attached.set(false);
-		// 	brp_initialized.set(false);
-		// });
+		events.subscribe(move |_event: &GameProcessDetachedEvent| {
+			game_process_attached.set(false);
+			world_initialized.set(false);
+		});
 		registry.write().plugins.get_mut(PLUGIN_NAME).unwrap().is_initialized = true;
 	});
 

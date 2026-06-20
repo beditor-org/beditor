@@ -1,8 +1,7 @@
 pub mod codec;
 pub mod connection;
 pub mod multiplexer;
-// pub mod protocol;
-// pub mod rpc;
+pub mod protocol;
 // pub mod stream;
 // pub mod stream_handler;
 pub mod framer;

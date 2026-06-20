@@ -1,16 +1,14 @@
-use bridge::codec::json::JsonCodec;
 use bridge::protocol::camera::CameraInputProtocol;
 use dioxus::prelude::*;
 
-use std::process::{ChildStdin, ChildStdout};
 use std::sync::{Arc, Mutex};
+use tokio::process::{ChildStdin, ChildStdout};
 
-use bridge::{
-	codec::base64::Base64Codec, connection::Connection, multiplexer::Multiplexer, protocol::frame_stream::FrameStreamProtocol,
-};
+use bridge::{multiplexer::Multiplexer, protocol::frame_stream::FrameStreamProtocol};
 use tracing::info;
 
 use crate::plugin::core::plugin::{CORE_SCENE_EDITOR_WORKSPACE, CORE_STATUS_BAR_PANEL};
+use crate::plugin::viewport;
 use crate::plugin::viewport::frame_counter::FrameCounter;
 use crate::tool::ToolPlacement;
 use crate::{
@@ -26,6 +24,7 @@ const PLUGIN_NAME: &str = "Viewport";
 pub struct ViewportState {
 	pub is_opened: bool,
 	pub frame_count: usize,
+	pub frame: Option<String>,
 }
 
 pub fn viewport_plugin() -> Plugin {
@@ -60,49 +59,57 @@ fn setup_context() -> Element {
 		Signal::new(ViewportState {
 			is_opened: false,
 			frame_count: 0,
+			frame: None,
 		})
 	});
-	use_context_provider(|| Signal::new(None::<Arc<Mutex<FrameStreamProtocol>>>));
+	// use_context_provider(|| Signal::new(None::<Arc<Mutex<FrameStreamProtocol>>>));
 	use_context_provider(|| Signal::new(None::<Arc<Mutex<CameraInputProtocol>>>));
-
 	rsx!()
 }
 
 fn entry() -> Element {
 	let mut registry = use_context::<Signal<PluginRegistry>>();
-	let mut multiplexer = use_context::<Signal<Option<Multiplexer<ChildStdout, ChildStdin>>>>();
-	let mut frame_stream = use_context::<Signal<Option<Arc<Mutex<FrameStreamProtocol>>>>>();
+	let multiplexer = use_context::<Signal<Option<Multiplexer<ChildStdout, ChildStdin>>>>();
+	let mut viewport_state = use_context::<Signal<ViewportState>>();
+
+	// let mut frame_stream = use_context::<Signal<Option<Arc<Mutex<FrameStreamProtocol>>>>>();
 	let mut controls_stream = use_context::<Signal<Option<Arc<Mutex<CameraInputProtocol>>>>>();
 
 	// Register channel as soon as multiplexer is available, not waiting for viewport to open
 	use_effect(move || {
-		let has_mux = multiplexer.read().is_some();
-		let has_no_stream = frame_stream.read().is_none();
-		let has_no_controls = controls_stream.read().is_none();
-		if has_mux {
-			if has_no_stream {
-				if let Some(mux) = multiplexer.write().as_mut() {
-					info!("Registering FrameStream channel");
-					let connection = Connection::new(
-						Base64Codec,
-						mux.register_for_type::<FrameStreamProtocol>(),
-						mux.get_writer_for_type::<FrameStreamProtocol>(),
-					);
-					frame_stream.set(Some(Arc::new(Mutex::new(FrameStreamProtocol { connection }))));
+		if let Some(mux) = multiplexer.read().as_ref() {
+			info!("Multiplexer is available, registering things");
+			let viewport_stream_protocol = mux.register_protocol::<FrameStreamProtocol>();
+			spawn(async move {
+				loop {
+					match viewport_stream_protocol.connection.recv_async().await {
+						Ok(frame) => viewport_state.write().frame = Some(frame),
+						Err(_) => break,
+					}
 				}
-			}
-			if has_no_controls {
-				if let Some(mux) = multiplexer.write().as_mut() {
-					info!("Registering Camera channel");
-					let connection = Connection::new(
-						JsonCodec,
-						mux.register_for_type::<CameraInputProtocol>(),
-						mux.get_writer_for_type::<CameraInputProtocol>(),
-					);
-					controls_stream.set(Some(Arc::new(Mutex::new(CameraInputProtocol { connection }))));
-				}
-			}
+			});
+		} else {
+			info!("Multiplexer is not available, cannot register things yet");
 		}
+
+		// let has_no_stream = frame_stream.read().is_none();
+		// let has_no_controls = controls_stream.read().is_none();
+		// if has_mux {
+		// 	if has_no_stream {
+		// 		let viewport_stream_protocol = mux.register_protocol::<FrameStreamProtocol>();
+
+		// 		if let Some(mux) = multiplexer.write().as_mut() {
+		// 			info!("Registering FrameStream channel");
+		// 			// frame_stream.set(Some(Arc::new(Mutex::new())));
+		// 		}
+		// 	}
+		// 	if has_no_controls {
+		// 		if let Some(mux) = multiplexer.write().as_mut() {
+		// 			info!("Registering Camera channel");
+		// 			controls_stream.set(Some(Arc::new(Mutex::new(mux.register_protocol::<CameraInputProtocol>()))));
+		// 		}
+		// 	}
+		// }
 	});
 
 	use_hook(|| {

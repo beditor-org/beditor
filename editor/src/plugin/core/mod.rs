@@ -1,3 +1,4 @@
+pub mod hierarchy;
 pub mod plugin;
 pub mod recent_projects;
 mod status_bar;
