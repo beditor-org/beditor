@@ -45,6 +45,7 @@ pub fn game_process_plugin() -> Plugin {
 }
 
 fn setup_context() -> Element {
+	use_context_provider(|| Signal::new(None::<GameProcess>));
 	use_context_provider(|| Signal::new(None::<GameProcessManager>));
 	rsx!()
 }
@@ -52,6 +53,7 @@ fn entry() -> Element {
 	let events = use_context::<Events>();
 	let mut registry = use_context::<Signal<PluginRegistry>>();
 	let game_process = use_context::<Signal<Option<GameProcess>>>();
+	let mut manager = use_context::<Signal<Option<GameProcessManager>>>();
 	let config = use_context::<Signal<EditorConfig>>();
 
 	use_drop(move || {
@@ -104,6 +106,7 @@ fn entry() -> Element {
 	// });
 
 	use_hook(|| {
+		*manager.write() = Some(GameProcessManager::new(game_process, events.clone()));
 		registry.write().plugins.get_mut(PLUGIN_NAME).unwrap().is_initialized = true;
 		info!("{PLUGIN_NAME} plugin initialized!");
 	});
@@ -117,11 +120,8 @@ pub struct GameProcessManager {
 }
 
 impl GameProcessManager {
-	pub fn new(events: Events) -> Self {
-		Self {
-			process: Signal::new(None),
-			events,
-		}
+	pub fn new(process: Signal<Option<GameProcess>>, events: Events) -> Self {
+		Self { process, events }
 	}
 
 	pub fn select(&self) {
