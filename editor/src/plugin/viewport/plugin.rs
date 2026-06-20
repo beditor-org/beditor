@@ -88,28 +88,13 @@ fn entry() -> Element {
 					}
 				}
 			});
+
+			let camera_protocol = mux.register_protocol::<CameraInputProtocol>();
+			controls_stream.set(Some(Arc::new(Mutex::new(camera_protocol))));
+			info!("Registered CameraInput channel");
 		} else {
 			info!("Multiplexer is not available, cannot register things yet");
 		}
-
-		// let has_no_stream = frame_stream.read().is_none();
-		// let has_no_controls = controls_stream.read().is_none();
-		// if has_mux {
-		// 	if has_no_stream {
-		// 		let viewport_stream_protocol = mux.register_protocol::<FrameStreamProtocol>();
-
-		// 		if let Some(mux) = multiplexer.write().as_mut() {
-		// 			info!("Registering FrameStream channel");
-		// 			// frame_stream.set(Some(Arc::new(Mutex::new())));
-		// 		}
-		// 	}
-		// 	if has_no_controls {
-		// 		if let Some(mux) = multiplexer.write().as_mut() {
-		// 			info!("Registering Camera channel");
-		// 			controls_stream.set(Some(Arc::new(Mutex::new(mux.register_protocol::<CameraInputProtocol>()))));
-		// 		}
-		// 	}
-		// }
 	});
 
 	use_hook(|| {

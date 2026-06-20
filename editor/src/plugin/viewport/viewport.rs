@@ -20,8 +20,6 @@ use crate::plugin::viewport::plugin::ViewportState;
 pub fn Viewport() -> Element {
 	// ALL HOOKS AT THE TOP - ALWAYS CALLED
 	let mut viewport_state = use_context::<Signal<ViewportState>>();
-	let frame = use_signal(|| None::<String>);
-	let protocol_signal = use_context::<Signal<Option<Arc<Mutex<FrameStreamProtocol>>>>>();
 	let camera_input = use_context::<Signal<Option<Arc<Mutex<CameraInputProtocol>>>>>();
 	let canvas_id = "viewport-canvas";
 
@@ -30,36 +28,6 @@ pub fn Viewport() -> Element {
 		viewport_state.write().is_opened = true;
 
 		info!("Viewport component mounted, viewport opened");
-	});
-
-	// Hook 2: Frame receiver
-	use_effect(move || {
-		let protocol_opt = protocol_signal.read().clone();
-		if let Some(protocol_arc) = protocol_opt {
-			info!("Starting frame receiver task");
-			let (tx, mut rx) = tokio::sync::watch::channel(None::<String>);
-			tx.send(viewport_state.read().frame.clone());
-
-			// std::thread::spawn(move || loop {
-			// 	let result = protocol_arc.lock().unwrap().connection.recv();
-			// 	match result {
-			// 		Ok(data) => {
-			// 			if let Ok(base64_string) = String::from_utf8(data) {
-			// 				let _ = tx.send(Some(base64_string));
-			// 			}
-			// 		}
-			// 		Err(_) => break,
-			// 	}
-			// });
-
-			let mut frame_clone = frame;
-			spawn(async move {
-				while rx.changed().await.is_ok() {
-					frame_clone.set(rx.borrow().clone());
-					viewport_state.write().frame_count += 1;
-				}
-			});
-		}
 	});
 
 	use_effect(move || {
