@@ -3,7 +3,7 @@ use std::process::ChildStdin;
 use crate::{codec::base64::Base64Codec, connection::Connection, protocol::Protocol, TypeName};
 
 pub struct FrameStreamProtocol {
-	pub connection: Connection<Base64Codec, ChildStdin>,
+	pub connection: Connection<Base64Codec>,
 }
 
 impl TypeName for FrameStreamProtocol {}
