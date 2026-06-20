@@ -18,7 +18,6 @@ use bridge::{
 	},
 };
 use clap::Parser;
-use serde::{Deserialize, Serialize};
 use tokio::io::{stdin, stdout, Stdin, Stdout};
 
 use crate::{frame_capture::FrameCapturePlugin, BepPlugin};
@@ -126,11 +125,6 @@ pub struct ViewportStream {
 	pub viewport: Connection<Base64Codec>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ControlsEvent {
-	x: f32,
-	y: f32,
-}
 pub trait EditorApp {
 	fn with_default_plugins(&mut self, default_plugins: impl IntoEditorPluginGroup) -> &mut Self;
 	fn with_editor_plugins(&mut self) -> &mut Self;

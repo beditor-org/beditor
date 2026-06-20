@@ -1,18 +1,8 @@
-use std::{
-	process::{ChildStdin, ChildStdout},
-	sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
+use bridge::protocol::camera::CameraInputProtocol;
 use bridge::protocol::camera::MouseEvent;
-use bridge::{
-	codec::json::JsonCodec,
-	connection::Connection,
-	multiplexer::Multiplexer,
-	protocol::{camera::CameraInputProtocol, frame_stream::FrameStreamProtocol},
-};
 use dioxus::{document::eval, prelude::*};
-use serde::{Deserialize, Serialize};
-use serde_json::to_value;
 use tracing::info;
 
 use crate::plugin::viewport::plugin::ViewportState;
@@ -91,7 +81,7 @@ pub fn Viewport() -> Element {
 							let dx = coords.x - last_x;
 							let dy = coords.y - last_y;
 							last_mouse_pos.set((coords.x, coords.y));
-							camera_input.lock().unwrap().connection.send(&MouseEvent {
+							let _ = camera_input.lock().unwrap().connection.send(&MouseEvent {
 									x: dx as f32,
 									y: dy as f32,
 								});

@@ -8,7 +8,6 @@ use bridge::{multiplexer::Multiplexer, protocol::frame_stream::FrameStreamProtoc
 use tracing::info;
 
 use crate::plugin::core::plugin::{CORE_SCENE_EDITOR_WORKSPACE, CORE_STATUS_BAR_PANEL};
-use crate::plugin::viewport;
 use crate::plugin::viewport::frame_counter::FrameCounter;
 use crate::tool::ToolPlacement;
 use crate::{
