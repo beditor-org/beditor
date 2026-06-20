@@ -107,6 +107,14 @@ fn entry() -> Element {
 
 	use_hook(|| {
 		*manager.write() = Some(GameProcessManager::new(game_process, events.clone()));
+		events.subscribe::<OpenGameEvent>(move |event| {
+			let path = std::path::PathBuf::from(&event.0);
+			if let Some(mgr) = manager.write().as_mut() {
+				if let Err(e) = mgr.spawn(&path) {
+					tracing::error!("Failed to spawn game process: {e}");
+				}
+			}
+		});
 		registry.write().plugins.get_mut(PLUGIN_NAME).unwrap().is_initialized = true;
 		info!("{PLUGIN_NAME} plugin initialized!");
 	});

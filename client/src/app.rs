@@ -123,7 +123,7 @@ pub struct ControlsStream {
 
 #[derive(Resource)]
 pub struct ViewportStream {
-	viewport: Connection<Base64Codec>,
+	pub viewport: Connection<Base64Codec>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

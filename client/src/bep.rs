@@ -53,7 +53,7 @@ mod tests {
 
 	#[test]
 	fn test_channel_id() {
-		let channel_id = Multiplexer::<std::io::Stdin, std::io::Stdout>::channel_id_for_type::<BepProtocol>();
+		let channel_id = Multiplexer::<tokio::io::DuplexStream, tokio::io::DuplexStream>::channel_id_for_type::<BepProtocol>();
 		eprintln!("BepProtocol Channel ID: {:#018x}", channel_id);
 	}
 }

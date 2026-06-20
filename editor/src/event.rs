@@ -45,11 +45,17 @@ impl Events {
 	pub fn publish<E: 'static>(&self, event: E) {
 		let type_id = TypeId::of::<E>();
 
-		let mut handlers = self.handlers.borrow_mut();
-		if let Some(event_handlers) = handlers.get_mut(&type_id) {
-			for handler in event_handlers {
-				handler(&event as &dyn Any);
-			}
+		// Take handlers out before calling them to allow re-entrant publish calls
+		let mut taken = self.handlers.borrow_mut().remove(&type_id).unwrap_or_default();
+
+		for handler in &mut taken {
+			handler(&event as &dyn Any);
 		}
+
+		// Put handlers back, merging with any that were added during event handling
+		let mut map = self.handlers.borrow_mut();
+		let existing = map.entry(type_id).or_default();
+		taken.extend(existing.drain(..));
+		*existing = taken;
 	}
 }

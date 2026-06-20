@@ -368,57 +368,48 @@ fn save_captured_frames(
 	}
 	*last_frame_hash = Some(current_hash);
 
-	// Clone sender для використання в потоці
-	let viewport_sender = viewport_stream.tx.clone();
+	// Dimensions (hardcoded, same as during creation)
+	let width = 640u32;
+	let height = 480u32;
+	let row_bytes = width as usize * 4; // RGBA = 4 bytes per pixel
+	let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
 
-	// Offload encoding to separate thread to avoid blocking main thread
-	std::thread::spawn(move || {
-		// Dimensions (hardcoded, same as during creation)
-		let width = 640u32;
-		let height = 480u32;
-		let row_bytes = width as usize * 4; // RGBA = 4 bytes per pixel
-		let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
+	// If there's padding - need to remove it
+	let actual_data: Vec<u8> = if row_bytes == aligned_row_bytes {
+		image_data
+	} else {
+		image_data
+			.chunks(aligned_row_bytes)
+			.take(height as usize)
+			.flat_map(|row| &row[..row_bytes])
+			.copied()
+			.collect()
+	};
 
-		// If there's padding - need to remove it
-		let actual_data: Vec<u8> = if row_bytes == aligned_row_bytes {
-			// No padding needed
-			image_data
-		} else {
-			// Has padding - remove from each row
-			image_data
-				.chunks(aligned_row_bytes)
-				.take(height as usize)
-				.flat_map(|row| &row[..row_bytes])
-				.copied()
-				.collect()
-		};
+	// Skip empty frames (first few while GPU hasn't finished rendering)
+	let non_zero_count = actual_data.iter().filter(|&&b| b != 0).count();
+	if non_zero_count == 0 {
+		return;
+	}
 
-		// Skip empty frames (first few while GPU hasn't finished rendering)
-		let non_zero_count = actual_data.iter().filter(|&&b| b != 0).count();
-		if non_zero_count == 0 {
-			return; // Skip empty frames
-		}
+	// JPEG with LOW quality (fast encoding, small size, hardware decode in browser)
+	let mut bevy_img = Image::new_target_texture(width, height, bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb);
+	bevy_img.data = Some(actual_data);
 
-		// JPEG with LOW quality (fast encoding, small size, hardware decode in browser)
-		let mut bevy_img = Image::new_target_texture(width, height, bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb);
-		bevy_img.data = Some(actual_data);
+	let Ok(dynamic_img) = bevy_img.try_into_dynamic() else {
+		return;
+	};
 
-		let Ok(dynamic_img) = bevy_img.try_into_dynamic() else {
-			return;
-		};
+	let mut jpeg_bytes = std::io::Cursor::new(Vec::new());
+	let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 60);
+	if dynamic_img.write_with_encoder(encoder).is_err() {
+		return;
+	}
 
-		// Quality 60 - fast encoding, acceptable quality for viewport
-		let mut jpeg_bytes = std::io::Cursor::new(Vec::new());
-		let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 60);
-		if let Err(_) = dynamic_img.write_with_encoder(encoder) {
-			return;
-		}
+	use base64::{engine::general_purpose, Engine as _};
+	let base64_data = general_purpose::STANDARD.encode(jpeg_bytes.into_inner());
 
-		use base64::{engine::general_purpose, Engine as _};
-		let base64_data = general_purpose::STANDARD.encode(jpeg_bytes.into_inner());
-
-		let _ = viewport_sender.send(base64_data);
-	});
+	let _ = viewport_stream.viewport.send(&base64_data);
 
 	*frame_counter += 1;
 }
