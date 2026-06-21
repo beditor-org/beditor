@@ -24,8 +24,12 @@ fn main() {
 	)
 	.with_editor_plugins()
 	.add_systems(Startup, (load_scene, add_meshes))
+	.add_systems(Update, bounce_ball)
 	.run();
 }
+
+#[derive(Component)]
+struct BouncingBall;
 
 fn load_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 	// Load scene from file - only transforms and light
@@ -154,13 +158,25 @@ fn add_meshes(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
 		Name::new("Main Camera"),
 		EditorCamera,
 	));
+
+	// Pink ball — placed to the left of the robot
+	commands.spawn((
+		Mesh3d(meshes.add(Sphere::new(0.5))),
+		MeshMaterial3d(materials.add(StandardMaterial {
+			base_color: Color::srgb(1.0, 0.08, 0.58),
+			metallic: 0.0,
+			perceptual_roughness: 0.3,
+			..default()
+		})),
+		Transform::from_xyz(-3.0, 0.5, 0.0),
+		Name::new("Pink Ball"),
+		BouncingBall,
+	));
 }
 
-fn rotate_cube(time: Res<Time>, mut query: Query<&mut Transform, With<Name>>) {
+fn bounce_ball(time: Res<Time>, mut query: Query<&mut Transform, With<BouncingBall>>) {
 	for mut transform in query.iter_mut() {
-		// Only rotate the cube
-		if transform.translation.y > 0.3 {
-			transform.rotate_y(time.delta_secs() * 0.5);
-		}
+		let t = time.elapsed_secs();
+		transform.translation.y = 0.5 + 2.5 * (t * 2.5).sin().abs();
 	}
 }
