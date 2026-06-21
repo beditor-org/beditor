@@ -3,7 +3,7 @@ pub mod core;
 pub mod dumy;
 pub mod game_process;
 // pub mod scene_editor;
-pub mod brp;
+pub mod bep;
 pub mod transport;
 pub mod viewport;
 

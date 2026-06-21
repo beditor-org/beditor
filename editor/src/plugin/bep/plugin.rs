@@ -1,6 +1,9 @@
 use tokio::process::{ChildStdin, ChildStdout};
 
-use bridge::{multiplexer::Multiplexer, protocol::bep::BepProtocol};
+use bridge::{
+	multiplexer::Multiplexer,
+	protocol::bep::{BepMessage, BepProtocol, EntityInfo},
+};
 use dioxus::prelude::*;
 
 use crate::{
@@ -11,9 +14,9 @@ use crate::{
 	},
 };
 
-const PLUGIN_NAME: &str = "BRP";
+const PLUGIN_NAME: &str = "BEP";
 
-pub fn brp_plugin() -> Plugin {
+pub fn bep_plugin() -> Plugin {
 	Plugin {
 		name: PLUGIN_NAME.to_string(),
 		entry: Some(entry),
@@ -34,14 +37,29 @@ fn entry() -> Element {
 	let mut game_process_attached = use_signal(|| false);
 	let mut world_initialized = use_signal(|| false);
 
+	let mut entities: Signal<Vec<EntityInfo>> = use_context_provider(|| Signal::new(vec![]));
+
 	use_effect(move || {
 		if let Some(multiplexer) = multiplexer.read().as_ref() {
 			if game_process_attached() && !world_initialized() {
 				info!("Game process is attached, setting up World Protocol");
 				let protocol = multiplexer.register_protocol::<BepProtocol>();
+				info!("✓ World Protocol initialized");
 
-				protocol.editor_ready();
-				info!("✓ World Protocol initialized, sent editor_ready");
+				spawn(async move {
+					loop {
+						match protocol.connection.recv_async().await {
+							Ok(message) => match message {
+								BepMessage::EntitiesListUpdate { entities: new_entities } => {
+									entities.set(new_entities);
+									println!("Received entities list update {:#?}", entities);
+								}
+								_ => {}
+							},
+							Err(_) => break,
+						}
+					}
+				});
 
 				world_initialized.set(true);
 			}

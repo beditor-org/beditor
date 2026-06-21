@@ -1,39 +1,8 @@
-use std::{
-	io::{stdin, stdout, Stdin, Stdout},
-	sync::{Arc, Mutex},
-};
-
 use bevy::prelude::*;
-use bridge::{codec::json::JsonCodec, connection::Connection, multiplexer::Multiplexer, protocol::bep::BepProtocol};
-use flume::{unbounded, Receiver, Sender};
+use bridge::protocol::bep::{BepProtocol, EntityInfo};
 
 use crate::app::ResMultiplexer;
 
-pub struct BepCommands {}
-
-pub fn bep_handler(bep: Res<BepResource>) {
-	while let Ok(Some(message)) = bep.protocol.connection.try_recv() {}
-}
-// let mut brp = world.get_resource_mut::<BrpConnection>().unwrap();
-// while let Ok(data) = brp.connection.lock().unwrap().connection.reader.try_recv() {
-// let request: RpcRequest = serde_json::from_slice(&data)?;
-
-// let response = match request.method.as_str() {
-// 	"bevy/list" => handle_list(world),
-// 	"custom/foo" => handle_foo(world),
-// 	_ => {
-// 		error!("Unknown method: {}", request.method);
-// 	}
-// };
-
-// brp.sender.send(&serde_json::to_vec(&response)?)?;
-// }
-
-#[derive(Resource)]
-pub struct BepStream {
-	pub rx: Receiver<String>,
-	pub tx: Sender<String>,
-}
 #[derive(Resource)]
 pub struct BepResource {
 	pub protocol: BepProtocol,
@@ -42,8 +11,33 @@ pub struct BepResource {
 pub struct BepPlugin;
 impl Plugin for BepPlugin {
 	fn build(&self, app: &mut App) {
-		// TODO: initialize BepProtocol on client side
+		app.add_systems(PostStartup, send_game_ready_and_entities);
 	}
+}
+
+fn send_game_ready_and_entities(
+	mut commands: Commands,
+	multiplexer: Res<ResMultiplexer>,
+	entities: Query<(Entity, Option<&Name>, Option<&ChildOf>)>,
+) {
+	let protocol = multiplexer.multiplexer.register_protocol::<BepProtocol>();
+
+	protocol.game_ready();
+
+	let entity_list: Vec<EntityInfo> = entities
+		.iter()
+		.map(|(entity, name, parent)| EntityInfo {
+			id: entity.index(),
+			name: name
+				.map(|n| n.as_str().to_string())
+				.unwrap_or_else(|| format!("Entity {}", entity.index())),
+			parent: parent.map(|p| p.parent().index()),
+		})
+		.collect();
+
+	protocol.update_entities_list(entity_list);
+
+	commands.insert_resource(BepResource { protocol });
 }
 
 #[cfg(test)]
