@@ -79,7 +79,7 @@ pub fn setup_editor_camera(
 	let mut render_target_image = Image::new_target_texture(
 		size.width,
 		size.height,
-		bevy::render::render_resource::TextureFormat::bevy_default(),
+		bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
 		None,
 	);
 	render_target_image.texture_descriptor.usage |= bevy::render::render_resource::TextureUsages::COPY_SRC;
