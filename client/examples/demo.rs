@@ -29,8 +29,8 @@ fn main() {
 
 fn load_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 	// Load scene from file - only transforms and light
-	let scene_handle: Handle<DynamicScene> = asset_server.load("demo_scene.scn.ron");
-	commands.spawn(DynamicSceneRoot(scene_handle));
+	let scene_handle: Handle<DynamicWorld> = asset_server.load("demo_scene.scn.ron");
+	commands.spawn(DynamicWorldRoot(scene_handle));
 }
 
 fn add_meshes(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
@@ -128,7 +128,7 @@ fn add_meshes(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
 		.spawn((
 			PointLight {
 				intensity: 2000.0,
-				shadows_enabled: true,
+				shadow_maps_enabled: true,
 				..default()
 			},
 			Transform::from_xyz(0.0, 4.2, 0.0),

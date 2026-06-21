@@ -3,12 +3,11 @@ use bevy::{
 	prelude::*,
 	render::{
 		render_asset::RenderAssets,
-		render_graph::{self, NodeRunError, RenderGraphContext, RenderLabel},
 		render_resource::{
 			Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, TexelCopyBufferInfo,
 			TexelCopyBufferLayout,
 		},
-		renderer::{RenderContext, RenderDevice, RenderQueue},
+		renderer::{RenderDevice, RenderQueue},
 		texture::GpuImage,
 		Extract, RenderApp,
 	},
@@ -61,18 +60,19 @@ impl Plugin for FrameCapturePlugin {
 		// Extract system (Main → Render copy)
 		render_app.add_systems(bevy::render::ExtractSchedule, extract_image_copiers);
 
-		// System for reading from buffer (after rendering)
+		// Copy texture → buffer (runs after rendering, before receive)
 		render_app.add_systems(
 			bevy::render::Render,
-			receive_image_from_buffer.after(bevy::render::RenderSystems::Render),
+			copy_image_to_buffer.after(bevy::render::RenderSystems::Render),
 		);
 
-		// Add node to RenderGraph
-		let mut render_graph = render_app
-			.world_mut()
-			.resource_mut::<bevy::render::render_graph::RenderGraph>();
-		render_graph.add_node(ImageCopyLabel, ImageCopyDriver);
-		render_graph.add_node_edge(bevy::render::graph::CameraDriverLabel, ImageCopyLabel);
+		// System for reading from buffer (after copying)
+		render_app.add_systems(
+			bevy::render::Render,
+			receive_image_from_buffer
+				.after(bevy::render::RenderSystems::Render)
+				.after(copy_image_to_buffer),
+		);
 
 		eprintln!("✅ FrameCapturePlugin initialized");
 	}
@@ -83,7 +83,7 @@ fn setup_cpu_image(mut commands: Commands, mut images: ResMut<Assets<Image>>, ex
 	if !existing.is_empty() {
 		return; // Already created
 	}
-	let cpu_image = Image::new_target_texture(640, 480, bevy::render::render_resource::TextureFormat::bevy_default());
+	let cpu_image = Image::new_target_texture(640, 480, bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb, None);
 	let handle = images.add(cpu_image);
 	commands.spawn(ImageToSave(handle));
 }
@@ -152,18 +152,14 @@ pub struct ImageCopiers(pub Vec<ImageCopier>);
 /// Runs every frame before rendering
 fn extract_image_copiers(
 	mut commands: Commands,
-	cameras: Extract<Query<&Camera, With<super::app::EditorCamera>>>,
+	cameras: Extract<Query<(&Camera, &RenderTarget), With<super::app::EditorCamera>>>,
 	render_device: Res<RenderDevice>,
 ) {
 	let mut copiers = Vec::new();
 
 	// For each EditorCamera create ImageCopier
-	for camera in cameras.iter() {
-		let Camera {
-			target: RenderTarget::Image(img_target),
-			..
-		} = camera
-		else {
+	for (_camera, render_target) in cameras.iter() {
+		let RenderTarget::Image(img_target) = render_target else {
 			continue; // Skip cameras without Image target
 		};
 
@@ -184,86 +180,62 @@ fn extract_image_copiers(
 }
 
 // ============================================================================
-// RENDER GRAPH NODE - executes GPU copy texture → buffer
+// RENDER SYSTEM - executes GPU copy texture → buffer (replaces RenderGraph node)
 // ============================================================================
 
-/// Label for our render node in the graph
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-struct ImageCopyLabel;
-
-/// RenderGraph node that copies textures to buffers
-/// Runs after CameraDriver (after rendering all cameras)
-#[derive(Default)]
-struct ImageCopyDriver;
-
-impl render_graph::Node for ImageCopyDriver {
-	fn run(
-		&self,
-		_graph: &mut RenderGraphContext,
-		render_context: &mut RenderContext,
-		world: &World,
-	) -> Result<(), NodeRunError> {
-		// Get list of copiers from Resource
-		let Some(image_copiers) = world.get_resource::<ImageCopiers>() else {
-			return Ok(()); // No copiers - nothing to do
-		};
-
-		// Get access to GPU images (render targets)
-		let Some(gpu_images) = world.get_resource::<RenderAssets<GpuImage>>() else {
-			return Ok(());
-		};
-
-		// For each copier copy its texture to buffer
-		for image_copier in image_copiers.iter() {
-			if !image_copier.is_enabled() {
-				continue; // Skip disabled copiers
-			}
-
-			// Find GPU texture by handle
-			let Some(gpu_image) = gpu_images.get(&image_copier.src_image) else {
-				eprintln!("GPU image not found for handle");
-				continue;
-			};
-
-			// Create command encoder for GPU commands
-			let mut encoder = render_context
-				.render_device()
-				.create_command_encoder(&CommandEncoderDescriptor {
-					label: Some("image_copy_encoder"),
-				});
-
-			// Get texture format info (block size, dimensions)
-			let block_dimensions = gpu_image.texture_format.block_dimensions();
-			let block_size = gpu_image.texture_format.block_copy_size(None).unwrap_or(4);
-
-			// Calculate padded bytes per row (GPU requires alignment)
-			let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
-				(gpu_image.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
-			);
-
-			// MAIN COMMAND: copy texture → buffer
-			encoder.copy_texture_to_buffer(
-				// Source (render target texture)
-				gpu_image.texture.as_image_copy(),
-				// Destination (mappable buffer)
-				TexelCopyBufferInfo {
-					buffer: &image_copier.buffer,
-					layout: TexelCopyBufferLayout {
-						offset: 0,
-						bytes_per_row: Some(std::num::NonZero::<u32>::new(padded_bytes_per_row as u32).unwrap().into()),
-						rows_per_image: None,
-					},
-				},
-				// Size to copy (texture size)
-				gpu_image.size,
-			);
-
-			// Submit commands to GPU queue
-			let render_queue = world.get_resource::<RenderQueue>().unwrap();
-			render_queue.submit(std::iter::once(encoder.finish()));
+/// System that copies textures to buffers
+/// Runs after RenderSystems::Render, before receive_image_from_buffer
+fn copy_image_to_buffer(
+	image_copiers: Res<ImageCopiers>,
+	gpu_images: Res<RenderAssets<GpuImage>>,
+	render_device: Res<RenderDevice>,
+	render_queue: Res<RenderQueue>,
+) {
+	// For each copier copy its texture to buffer
+	for image_copier in image_copiers.iter() {
+		if !image_copier.is_enabled() {
+			continue; // Skip disabled copiers
 		}
 
-		Ok(())
+		// Find GPU texture by handle
+		let Some(gpu_image) = gpu_images.get(&image_copier.src_image) else {
+			eprintln!("GPU image not found for handle");
+			continue;
+		};
+
+		// Create command encoder for GPU commands
+		let mut encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
+			label: Some("image_copy_encoder"),
+		});
+
+		// Get texture format info (block size, dimensions)
+		let block_dimensions = gpu_image.texture_descriptor.format.block_dimensions();
+		let block_size = gpu_image.texture_descriptor.format.block_copy_size(None).unwrap_or(4);
+
+		// Calculate padded bytes per row (GPU requires alignment)
+		let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
+			(gpu_image.texture_descriptor.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
+		);
+
+		// MAIN COMMAND: copy texture → buffer
+		encoder.copy_texture_to_buffer(
+			// Source (render target texture)
+			gpu_image.texture.as_image_copy(),
+			// Destination (mappable buffer)
+			TexelCopyBufferInfo {
+				buffer: &image_copier.buffer,
+				layout: TexelCopyBufferLayout {
+					offset: 0,
+					bytes_per_row: Some(std::num::NonZero::<u32>::new(padded_bytes_per_row as u32).unwrap().into()),
+					rows_per_image: None,
+				},
+			},
+			// Size to copy (texture size)
+			gpu_image.texture_descriptor.size,
+		);
+
+		// Submit commands to GPU queue
+		render_queue.submit(std::iter::once(encoder.finish()));
 	}
 }
 
@@ -296,7 +268,7 @@ fn receive_image_from_buffer(image_copiers: Res<ImageCopiers>, render_device: Re
 		// Block until GPU finishes copying
 		// On native this blocks thread, on WebGPU - awaits
 		render_device
-			.poll(bevy::render::render_resource::PollType::Wait)
+			.poll(bevy::render::render_resource::PollType::wait_indefinitely())
 			.expect("Failed to poll device");
 
 		// Wait for callback (buffer ready for reading)
@@ -393,7 +365,12 @@ fn save_captured_frames(
 	}
 
 	// JPEG with LOW quality (fast encoding, small size, hardware decode in browser)
-	let mut bevy_img = Image::new_target_texture(width, height, bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb);
+	let mut bevy_img = Image::new_target_texture(
+		width,
+		height,
+		bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+		None,
+	);
 	bevy_img.data = Some(actual_data);
 
 	let Ok(dynamic_img) = bevy_img.try_into_dynamic() else {

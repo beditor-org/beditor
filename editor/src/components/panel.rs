@@ -97,7 +97,7 @@ pub fn TabbedPanel(panel: PanelConfig) -> Element {
 	rsx!(for (idx, tool) in tools.iter().enumerate() {
 		div {
 			key: "{idx}",
-			class: "flex-1 panel overflow-hidden",
+			class: "flex flex-col flex-1 min-h-0 panel overflow-hidden",
 			{(tool.component)()}
 		}
 	})

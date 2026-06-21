@@ -24,7 +24,7 @@ pub fn EntityBrowser() -> Element {
 	let tree = build_tree(&entities.read());
 
 	rsx! {
-		div { class: "flex flex-col h-full overflow-auto p-2",
+		div { class: "flex flex-col flex-1 min-h-0 overflow-y-auto p-2",
 			if tree.is_empty() {
 				div { class: "text-muted-foreground text-sm p-2", "No entities" }
 			} else {
