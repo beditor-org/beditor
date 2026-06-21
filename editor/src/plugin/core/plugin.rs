@@ -7,7 +7,6 @@ use crate::{
 	plugin::{
 		asset_browser::ASSET_BROWSER_WORKSPACE,
 		core::{
-			hierarchy::hierarchy,
 			top_bar::{main_menu::MenuBar, Logo, WindowControls, WorkspaceTabsTool},
 			welcome, StatusBar,
 		},
@@ -82,16 +81,6 @@ pub fn core_plugin() -> Plugin {
 				workspaces: vec![CORE_WELCOME_WORKSPACE.clone()],
 			}
 			.with_tools(vec![("Welcome", welcome::welcome, ToolAlignment::default())]),
-			PanelConfig {
-				socket: PanelSocket::Left,
-				name: "Hierarchy".to_string(),
-				display_mode: PanelDisplayMode::Tabbed,
-				is_visible: true,
-				is_active: false,
-				tools: vec![],
-				workspaces: vec![CORE_SCENE_EDITOR_WORKSPACE.clone()],
-			}
-			.with_tools(vec![("Hierarchy", hierarchy, ToolAlignment::default())]),
 		],
 		workspaces: vec![
 			Workspace {
