@@ -27,11 +27,11 @@ fn send_game_ready_and_entities(
 	let entity_list: Vec<EntityInfo> = entities
 		.iter()
 		.map(|(entity, name, parent)| EntityInfo {
-			id: entity.index(),
+			id: entity.index_u32(),
 			name: name
 				.map(|n| n.as_str().to_string())
-				.unwrap_or_else(|| format!("Entity {}", entity.index())),
-			parent: parent.map(|p| p.parent().index()),
+				.unwrap_or_else(|| format!("Entity {}", entity.index_u32())),
+			parent: parent.map(|p| p.parent().index_u32()),
 		})
 		.collect();
 

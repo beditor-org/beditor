@@ -83,7 +83,7 @@ fn setup_cpu_image(mut commands: Commands, mut images: ResMut<Assets<Image>>, ex
 	if !existing.is_empty() {
 		return; // Already created
 	}
-	let cpu_image = Image::new_target_texture(640, 480, bevy::render::render_resource::TextureFormat::bevy_default());
+	let cpu_image = Image::new_target_texture(640, 480, bevy::render::render_resource::TextureFormat::bevy_default(), None);
 	let handle = images.add(cpu_image);
 	commands.spawn(ImageToSave(handle));
 }
@@ -152,18 +152,14 @@ pub struct ImageCopiers(pub Vec<ImageCopier>);
 /// Runs every frame before rendering
 fn extract_image_copiers(
 	mut commands: Commands,
-	cameras: Extract<Query<&Camera, With<super::app::EditorCamera>>>,
+	cameras: Extract<Query<(&Camera, &RenderTarget), With<super::app::EditorCamera>>>,
 	render_device: Res<RenderDevice>,
 ) {
 	let mut copiers = Vec::new();
 
 	// For each EditorCamera create ImageCopier
-	for camera in cameras.iter() {
-		let Camera {
-			target: RenderTarget::Image(img_target),
-			..
-		} = camera
-		else {
+	for (_camera, render_target) in cameras.iter() {
+		let RenderTarget::Image(img_target) = render_target else {
 			continue; // Skip cameras without Image target
 		};
 
@@ -296,7 +292,7 @@ fn receive_image_from_buffer(image_copiers: Res<ImageCopiers>, render_device: Re
 		// Block until GPU finishes copying
 		// On native this blocks thread, on WebGPU - awaits
 		render_device
-			.poll(bevy::render::render_resource::PollType::Wait)
+			.poll(bevy::render::render_resource::PollType::wait_indefinitely())
 			.expect("Failed to poll device");
 
 		// Wait for callback (buffer ready for reading)
@@ -393,7 +389,12 @@ fn save_captured_frames(
 	}
 
 	// JPEG with LOW quality (fast encoding, small size, hardware decode in browser)
-	let mut bevy_img = Image::new_target_texture(width, height, bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb);
+	let mut bevy_img = Image::new_target_texture(
+		width,
+		height,
+		bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+		None,
+	);
 	bevy_img.data = Some(actual_data);
 
 	let Ok(dynamic_img) = bevy_img.try_into_dynamic() else {
