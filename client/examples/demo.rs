@@ -25,12 +25,15 @@ fn main() {
 	)
 	.with_editor_plugins()
 	.add_systems(Startup, (load_scene, add_meshes))
-	.add_systems(Update, bounce_ball)
+	.add_systems(Update, (bounce_ball, flicker_lamp))
 	.run();
 }
 
 #[derive(Component)]
 struct BouncingBall;
+
+#[derive(Component)]
+struct TorchLight;
 
 fn load_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 	// Load scene from file - only transforms and light
@@ -132,21 +135,30 @@ fn add_meshes(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
 	let lamp = commands
 		.spawn((
 			PointLight {
-				intensity: 2000.0,
+				color: Color::srgb(1.0, 0.55, 0.1),
+				intensity: 80_000.0,
+				range: 20.0,
 				shadow_maps_enabled: true,
 				..default()
 			},
 			Transform::from_xyz(0.0, 4.2, 0.0),
 			Name::new("Lamp"),
+			TorchLight,
 		))
 		.id();
 
 	commands.entity(lamp_post).add_children(&[pole, lamp]);
 
 	// Main ambient light + camera
+	commands.spawn(AmbientLight {
+		color: Color::srgb(0.15, 0.15, 0.2),
+		brightness: 200.0,
+		affects_lightmapped_meshes: true,
+	});
+
 	commands.spawn((
 		PointLight {
-			intensity: 800.0,
+			intensity: 30_000.0,
 			..default()
 		},
 		Transform::from_xyz(-4.0, 6.0, -4.0),
@@ -179,5 +191,13 @@ fn bounce_ball(time: Res<Time>, mut query: Query<&mut Transform, With<BouncingBa
 	for mut transform in query.iter_mut() {
 		let t = time.elapsed_secs();
 		transform.translation.y = 0.5 + 2.5 * (t * 2.5).sin().abs();
+	}
+}
+
+fn flicker_lamp(time: Res<Time>, mut query: Query<&mut PointLight, With<TorchLight>>) {
+	for mut light in query.iter_mut() {
+		let t = time.elapsed_secs();
+		let flicker = 1.0 + 0.18 * (t * 11.3).sin() + 0.12 * (t * 23.7).sin() + 0.07 * (t * 47.9).cos() + 0.04 * (t * 83.1).sin();
+		light.intensity = 80_000.0 * flicker.max(0.4);
 	}
 }
