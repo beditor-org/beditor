@@ -1,7 +1,9 @@
 use bridge::protocol::camera::CameraInputProtocol;
 use dioxus::prelude::*;
 
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use tokio::process::{ChildStdin, ChildStdout};
 
 use bridge::{multiplexer::Multiplexer, protocol::frame_stream::FrameStreamProtocol};
@@ -23,6 +25,9 @@ const PLUGIN_NAME: &str = "Viewport";
 pub struct ViewportState {
 	pub is_opened: bool,
 	pub frame_count: usize,
+	pub fps: f32,
+	/// Timestamps of frames received in the last second (sliding window).
+	pub frame_timestamps: VecDeque<Instant>,
 	pub frame: Option<String>,
 }
 
@@ -58,6 +63,8 @@ fn setup_context() -> Element {
 		Signal::new(ViewportState {
 			is_opened: false,
 			frame_count: 0,
+			fps: 0.0,
+			frame_timestamps: VecDeque::new(),
 			frame: None,
 		})
 	});
@@ -82,7 +89,18 @@ fn entry() -> Element {
 			spawn(async move {
 				loop {
 					match viewport_stream_protocol.connection.recv_async().await {
-						Ok(frame) => viewport_state.write().frame = Some(frame),
+						Ok(frame) => {
+							let now = Instant::now();
+							let mut state = viewport_state.write();
+							state.frame = Some(frame);
+							state.frame_count += 1;
+							state.frame_timestamps.push_back(now);
+							let cutoff = now - std::time::Duration::from_secs(1);
+							while state.frame_timestamps.front().map_or(false, |t| *t < cutoff) {
+								state.frame_timestamps.pop_front();
+							}
+							state.fps = state.frame_timestamps.len() as f32;
+						}
 						Err(_) => break,
 					}
 				}
