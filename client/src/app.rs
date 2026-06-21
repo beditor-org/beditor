@@ -3,6 +3,7 @@ use std::time::Duration;
 use bevy::{
 	app::{PluginGroupBuilder, ScheduleRunnerPlugin},
 	camera::RenderTarget,
+	dev_tools::infinite_grid::{InfiniteGrid, InfiniteGridPlugin},
 	prelude::*,
 	remote::RemotePlugin,
 	window::ExitCondition,
@@ -55,6 +56,10 @@ impl IntoEditorPluginGroup for PluginGroupBuilder {
 	fn into_editor_builder(self) -> PluginGroupBuilder {
 		self
 	}
+}
+
+pub fn setup_infinite_grid(mut commands: Commands) {
+	commands.spawn(InfiniteGrid);
 }
 
 pub fn setup_editor_camera(
@@ -162,8 +167,9 @@ impl EditorApp for App {
 					// Run 60 times per second.
 					Duration::from_secs_f64(1.0 / 60.0),
 				))
-				.add_plugins((FrameCapturePlugin, BepPlugin))
+				.add_plugins((FrameCapturePlugin, BepPlugin, InfiniteGridPlugin))
 				.add_systems(PostStartup, setup_editor_camera)
+				.add_systems(Startup, setup_infinite_grid)
 				.add_systems(Update, controll_editor_camera);
 		}
 		self
