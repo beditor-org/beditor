@@ -141,7 +141,7 @@ fn add_meshes(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
 				shadow_maps_enabled: true,
 				..default()
 			},
-			Transform::from_xyz(0.0, 4.2, 0.0),
+			Transform::from_xyz(0.0, 6.0, 0.0),
 			Name::new("Lamp"),
 			TorchLight,
 		))
@@ -152,13 +152,13 @@ fn add_meshes(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
 	// Main ambient light + camera
 	commands.spawn(AmbientLight {
 		color: Color::srgb(0.15, 0.15, 0.2),
-		brightness: 200.0,
+		brightness: 600.0,
 		affects_lightmapped_meshes: true,
 	});
 
 	commands.spawn((
 		PointLight {
-			intensity: 30_000.0,
+			intensity: 200_000.0,
 			..default()
 		},
 		Transform::from_xyz(-4.0, 6.0, -4.0),
@@ -198,6 +198,6 @@ fn flicker_lamp(time: Res<Time>, mut query: Query<&mut PointLight, With<TorchLig
 	for mut light in query.iter_mut() {
 		let t = time.elapsed_secs();
 		let flicker = 1.0 + 0.18 * (t * 11.3).sin() + 0.12 * (t * 23.7).sin() + 0.07 * (t * 47.9).cos() + 0.04 * (t * 83.1).sin();
-		light.intensity = 80_000.0 * flicker.max(0.4);
+		light.intensity = 500_000.0 * flicker.max(0.4);
 	}
 }
