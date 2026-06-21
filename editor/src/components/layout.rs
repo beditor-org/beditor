@@ -1,27 +1,32 @@
-use std::sync::Arc;
-
 use dioxus::prelude::*;
 
 use crate::{
-	components::{LayoutArea, Viewport},
+	components::{panel::TabbedPanel, LayoutArea},
 	panel::PanelsManager,
-	PanelAligment, PluginRegistry, PluginsManager,
+	plugin::PluginRegistry,
+	workspace::WorkspaceRegistry,
+	PanelSocket,
 };
-
 #[component]
 pub fn EditorLayout() -> Element {
-	let plugins_registry = use_context::<Arc<PluginRegistry>>();
-	let pm = use_context::<Signal<PluginsManager>>();
+	info!("rendering EditorLayout component");
+	let plugins = use_context::<Signal<PluginRegistry>>();
 
 	// Provide panels signal to children
+	let workspaces_registry = use_context::<Signal<WorkspaceRegistry>>();
 	let mut panels_manager = use_context_provider(|| Signal::new(PanelsManager::default()));
 
-	// Auto-rebuild panels when plugin states change
+	// Rebuild panels when workspace changes
 	use_effect(move || {
-		let panels = PanelsManager::from_plugins(&plugins_registry, &pm.read());
-		println!("✓ PanelsManager rebuilt with {:?} panels", panels.panels.len());
+		let registry = workspaces_registry.read();
+		let current_workspace = registry.get_current().expect("No current workspace found").clone();
+
+		let mut panels = PanelsManager::from_plugins(&plugins.read());
+		panels.make_active_for_workspace(&current_workspace);
+		info!("✓ PanelsManager rebuilt with {:?} panels", panels.panels.len());
 		panels_manager.set(panels);
 	});
+
 	let mut top_panels = vec![];
 	let mut bottom_panels = vec![];
 	let mut left_panels = vec![];
@@ -34,27 +39,29 @@ pub fn EditorLayout() -> Element {
 		.panels
 		.clone()
 		.into_iter()
-		.filter(|pannel| pannel.is_visible)
-		.for_each(|pannel| match pannel.alignment {
-			PanelAligment::Top => top_panels.push(pannel),
-			PanelAligment::Bottom => bottom_panels.push(pannel),
-			PanelAligment::Left => left_panels.push(pannel),
-			PanelAligment::Right => right_panels.push(pannel),
-			PanelAligment::CenterTop => center_top_panels.push(pannel),
-			PanelAligment::CenterBottom => center_bottom_panels.push(pannel),
-			PanelAligment::Center => center_panel = Some(pannel),
+		.filter(|(_, pannel)| pannel.is_visible && pannel.is_active)
+		.for_each(|(_, pannel)| match pannel.socket {
+			PanelSocket::Left => left_panels.push(pannel),
+			PanelSocket::Right => right_panels.push(pannel),
+			PanelSocket::Top => top_panels.push(pannel),
+			PanelSocket::Bottom => bottom_panels.push(pannel),
+			PanelSocket::CenterTop => center_top_panels.push(pannel),
+			PanelSocket::CenterBottom => center_bottom_panels.push(pannel),
+			PanelSocket::Center => center_panel = Some(pannel),
 		});
 	rsx! {
 		div {
 			class: "flex flex-col h-screen overflow-hidden gap-1 p-1 bg-primary",
 			LayoutArea { panels: top_panels }
 			div{
-				class: "flex flex-row grow-1 gap-1",
+				class: "flex flex-row flex-1 gap-1 overflow-hidden",
 				LayoutArea { panels: left_panels }
 				div {
-					class: "flex flex-col grow-1 gap-1",
+					class: "flex flex-col flex-1 gap-1 overflow-hidden",
 					LayoutArea { panels: center_top_panels }
-					Viewport {}
+					if let Some(panel) = center_panel {
+						TabbedPanel { key: "{panel.name}", panel }
+					}
 					LayoutArea { panels: center_bottom_panels }
 				}
 				LayoutArea { panels: right_panels }

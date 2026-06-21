@@ -1,13 +1,13 @@
 use dioxus::core::Element;
 
-use crate::{PanelAligment, PanelConfig};
+use crate::{PanelConfig, PanelSocket, ResourceId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ToolPlacement {
-	PanelByName(String),             // Place in specific panel by name
-	PanelByAlignment(PanelAligment), // Place in any panel with this alignment
-	OwnPanel(PanelConfig),           // Create dedicated panel for this tool
-	                                 // NoUI,                            // No UI component (background service)
+	ByResourceId(ResourceId),      // Place in specific panel by resource id
+	PanelByAlignment(PanelSocket), // Place in any panel with this alignment
+	OwnPanel(PanelConfig),         // Create dedicated panel for this tool
+	                               // NoUI,                            // No UI component (background service)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -25,4 +25,6 @@ pub struct Tool {
 	pub component: fn() -> Element,
 	/// Only work in Stacked panels
 	pub alignment: ToolAlignment,
+	/// Workspaces where this tool should be visible
+	pub workspaces: Vec<ResourceId>,
 }

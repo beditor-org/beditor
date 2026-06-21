@@ -1,9 +1,9 @@
 use dioxus::prelude::*;
 
-use crate::{components::Panel, PanelState};
+use crate::{components::Panel, PanelConfig};
 
 #[component]
-pub fn LayoutArea(panels: Vec<PanelState>) -> Element {
+pub fn LayoutArea(panels: Vec<PanelConfig>) -> Element {
 	rsx! {
 		if !panels.is_empty() {
 			div {

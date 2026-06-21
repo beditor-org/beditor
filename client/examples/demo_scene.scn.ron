@@ -1,0 +1,28 @@
+(
+  resources: {},
+  entities: {
+    1: (
+      components: {
+        "bevy_transform::components::transform::Transform": (
+          translation: (4.0, 8.0, 4.0),
+          rotation: (0.0, 0.0, 0.0, 1.0),
+          scale: (1.0, 1.0, 1.0),
+        ),
+        "bevy_light::point_light::PointLight": (
+          color: Srgba((
+            red: 1.0,
+            green: 1.0,
+            blue: 1.0,
+            alpha: 1.0,
+          )),
+          intensity: 1500.0,
+          range: 20.0,
+          radius: 0.0,
+          shadows_enabled: true,
+          shadow_depth_bias: 0.02,
+          shadow_normal_bias: 0.6,
+        ),
+      },
+    ),
+  },
+)

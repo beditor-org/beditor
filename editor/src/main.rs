@@ -1,29 +1,38 @@
 use std::sync::{Arc, RwLock};
 
-use beditor::{
+use editor::{
 	components::App,
-	plugins::{CorePlugin, DumyPlugin},
-	EditorConfig, EditorContext, PluginRegistry,
+	plugin::{
+		asset_browser::asset_browser_plugin, bep::plugin::bep_plugin, core::plugin::core_plugin, dumy::plugin::dumy_plugin,
+		game_process::game_process_plugin, transport::stdio::stdio_transport_plugin, viewport::plugin::viewport_plugin,
+		PluginBuilder,
+	},
+	EditorConfig, EditorContext,
 };
-
 fn main() {
-	let config = EditorConfig::default();
+	let config = EditorConfig::load();
 	let editor_state = EditorContext::default();
 
-	let mut registry = PluginRegistry::new();
-	registry.register(CorePlugin);
-	registry.register(DumyPlugin);
-
 	let window = dioxus::desktop::WindowBuilder::new()
-		.with_title(config.top_bar.title.to_string())
-		.with_decorations(false)
-		.with_resizable(true);
+		.with_title(config.window.title.to_string())
+		.with_decorations(config.window.decorations)
+		.with_resizable(config.window.resizable);
 
 	let window_cfg = dioxus::desktop::Config::new().with_window(window);
 
+	let plugins: Vec<PluginBuilder> = vec![
+		dumy_plugin,
+		core_plugin,
+		stdio_transport_plugin,
+		game_process_plugin,
+		viewport_plugin,
+		asset_browser_plugin,
+		bep_plugin,
+	];
 	dioxus::LaunchBuilder::desktop()
 		.with_cfg(window_cfg)
 		.with_context(Arc::new(RwLock::new(editor_state)))
-		.with_context(Arc::new(registry))
+		.with_context(plugins)
+		.with_context(config)
 		.launch(App);
 }

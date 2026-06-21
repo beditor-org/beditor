@@ -13,8 +13,14 @@ use bevy::{
 		Extract, RenderApp,
 	},
 };
-use crossbeam_channel::{Receiver, Sender};
+use bridge::protocol::frame_stream::FrameStreamProtocol;
+use flume::{bounded, unbounded, Receiver, Sender};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::io::{self, Write};
 use std::sync::{atomic::AtomicBool, Arc};
+
+use crate::app::{ResMultiplexer, ViewportStream};
 
 // ============================================================================
 // RESOURCES - for communication between Main World and Render World
@@ -39,7 +45,7 @@ pub struct FrameCapturePlugin;
 impl Plugin for FrameCapturePlugin {
 	fn build(&self, app: &mut App) {
 		// Create unbounded channel (no queue size limit)
-		let (sender, receiver) = crossbeam_channel::unbounded();
+		let (sender, receiver) = unbounded();
 
 		// Main World: add receiver and save system
 		app.insert_resource(MainWorldReceiver(receiver))
@@ -80,7 +86,6 @@ fn setup_cpu_image(mut commands: Commands, mut images: ResMut<Assets<Image>>, ex
 	let cpu_image = Image::new_target_texture(640, 480, bevy::render::render_resource::TextureFormat::bevy_default());
 	let handle = images.add(cpu_image);
 	commands.spawn(ImageToSave(handle));
-	eprintln!("🖼️  CPU image for saving created");
 }
 
 // ============================================================================
@@ -280,7 +285,7 @@ fn receive_image_from_buffer(image_copiers: Res<ImageCopiers>, render_device: Re
 
 		// Create channel for async callback
 		// map_async doesn't block - notifies through channel when ready
-		let (s, r) = crossbeam_channel::bounded(1);
+		let (s, r) = bounded(1);
 
 		// Request buffer access (mapping)
 		buffer_slice.map_async(bevy::render::render_resource::MapMode::Read, move |result| match result {
@@ -322,6 +327,8 @@ fn save_captured_frames(
 	receiver: Res<MainWorldReceiver>,
 	mut frame_counter: Local<u32>,
 	mut last_frame_time: Local<Option<std::time::Instant>>,
+	mut last_frame_hash: Local<Option<u64>>,
+	viewport_stream: Res<ViewportStream>,
 ) {
 	// Throttle to ~60 FPS for output
 	let now = std::time::Instant::now();
@@ -346,6 +353,21 @@ fn save_captured_frames(
 	// Update last frame time
 	*last_frame_time = Some(now);
 
+	// Quick hash check - skip if frame didn't change (static scene optimization)
+	use std::collections::hash_map::DefaultHasher;
+	use std::hash::{Hash, Hasher};
+	let mut hasher = DefaultHasher::new();
+	image_data.hash(&mut hasher);
+	let current_hash = hasher.finish();
+
+	if let Some(prev_hash) = *last_frame_hash {
+		if current_hash == prev_hash {
+			// Frame unchanged - skip encoding/sending entirely
+			return;
+		}
+	}
+	*last_frame_hash = Some(current_hash);
+
 	// Dimensions (hardcoded, same as during creation)
 	let width = 640u32;
 	let height = 480u32;
@@ -354,10 +376,8 @@ fn save_captured_frames(
 
 	// If there's padding - need to remove it
 	let actual_data: Vec<u8> = if row_bytes == aligned_row_bytes {
-		// No padding needed
 		image_data
 	} else {
-		// Has padding - remove from each row
 		image_data
 			.chunks(aligned_row_bytes)
 			.take(height as usize)
@@ -369,32 +389,27 @@ fn save_captured_frames(
 	// Skip empty frames (first few while GPU hasn't finished rendering)
 	let non_zero_count = actual_data.iter().filter(|&&b| b != 0).count();
 	if non_zero_count == 0 {
-		return; // Skip empty frames
+		return;
 	}
 
-	// Create Bevy Image from raw data (like in headless_renderer example)
+	// JPEG with LOW quality (fast encoding, small size, hardware decode in browser)
 	let mut bevy_img = Image::new_target_texture(width, height, bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb);
 	bevy_img.data = Some(actual_data);
 
-	// Convert to DynamicImage for saving
 	let Ok(dynamic_img) = bevy_img.try_into_dynamic() else {
-		eprintln!("Failed to convert to dynamic image");
 		return;
 	};
 
-	// Convert to PNG bytes
-	let mut png_bytes = std::io::Cursor::new(Vec::new());
-	if let Err(e) = dynamic_img.write_to(&mut png_bytes, image::ImageFormat::Png) {
-		eprintln!("Failed to encode PNG: {e}");
+	let mut jpeg_bytes = std::io::Cursor::new(Vec::new());
+	let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 60);
+	if dynamic_img.write_with_encoder(encoder).is_err() {
 		return;
 	}
 
-	// Encode to base64
 	use base64::{engine::general_purpose, Engine as _};
-	let base64_data = general_purpose::STANDARD.encode(png_bytes.into_inner());
+	let base64_data = general_purpose::STANDARD.encode(jpeg_bytes.into_inner());
 
-	// Output to stdout for editor to read
-	println!("FRAME: {}", base64_data);
+	let _ = viewport_stream.viewport.send(&base64_data);
 
 	*frame_counter += 1;
 }

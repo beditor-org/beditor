@@ -1,16 +1,25 @@
-use std::{any::TypeId, collections::HashMap};
+use std::collections::HashMap;
 
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::{
-	plugin::PluginState,
+	plugin::PluginRegistry,
 	tool::{Tool, ToolPlacement},
-	PluginRegistry, PluginsManager,
+	ResourceId, ToolAlignment,
 };
 
-#[derive(Clone, Debug, Default, PartialEq)]
-pub enum PanelAligment {
-	#[default]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum SocketAlignment {
+	LeftToRight,
+	RightToLeft,
+	TopToBottom,
+	BottomToTop,
+}
+pub type SocketsConfig = HashMap<PanelSocket, SocketAlignment>;
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub enum PanelSocket {
 	Left,
 	Right,
 	Top,
@@ -29,100 +38,82 @@ pub enum PanelDisplayMode {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PanelConfig {
 	pub name: String,
-	pub alignment: PanelAligment,
-	pub display_mode: PanelDisplayMode,
-}
-#[derive(Clone, Debug, PartialEq)]
-pub struct PanelState {
-	pub alignment: PanelAligment,
+	pub is_visible: bool, // is made visible by user
+	pub is_active: bool,  // is present on current workspace
+	pub socket: PanelSocket,
 	pub display_mode: PanelDisplayMode,
 	pub tools: Vec<Tool>,
-	pub name: String,
-	pub is_visible: bool,
-	// pub is_open: bool,
-	// pub title: String,
-	// Additional fields can be added as needed
+	/// List of workspace IDs where this panel should be available
+	pub workspaces: Vec<ResourceId>,
 }
 
-impl Default for PanelState {
-	fn default() -> Self {
-		Self {
-			alignment: PanelAligment::Left,
-			display_mode: PanelDisplayMode::Tabbed,
-			tools: Vec::new(),
-			name: String::new(),
-			is_visible: true,
-		}
+impl PanelConfig {
+	pub fn with_tools(mut self, tools: Vec<(&str, fn() -> Element, ToolAlignment)>) -> Self {
+		self.tools.extend(
+			tools
+				.iter()
+				.map(|(name, component, alignment)| Tool {
+					placement: ToolPlacement::ByResourceId(ResourceId::panel(&self.name, name)),
+					name: name.to_string(),
+					component: *component,
+					alignment: *alignment,
+					workspaces: vec![],
+				})
+				.collect::<Vec<Tool>>(),
+		);
+		self
 	}
 }
-
-impl PanelState {
-	pub fn toggle(&mut self) {
-		self.is_visible = !self.is_visible;
-	}
-}
-
 #[derive(Clone, Default)]
 pub struct PanelsManager {
-	pub panels: Vec<PanelState>,
+	pub panels: HashMap<ResourceId, PanelConfig>,
 }
 
-// impl From<HashMap<TypeId, PluginState>> for PanelsManager {
-// 	fn from(value: HashMap<TypeId, PluginState>) -> Self {
-// 		Self { panels: Vec::new() }
-// 	}
-// }
-
 impl PanelsManager {
-	pub fn add_panel(&mut self, panel: PanelState) {
-		info!("Adding panel: {:?}", panel.name);
-		self.panels.push(panel);
+	pub fn make_active_for_workspace(&mut self, workspace: &crate::workspace::Workspace) {
+		self.panels.iter_mut().for_each(|(id, panel)| {
+			panel.is_active = workspace.panels.contains(id);
+			// Don't filter tools here - it breaks hooks ordering!
+			// Tools will check workspace visibility in StackedPanel component
+		});
 	}
 
-	pub fn get_panel_by_name(&mut self, name: &str) -> Option<&mut PanelState> {
-		self.panels.iter_mut().find(|p| p.name == name)
-	}
+	pub fn from_plugins(registry: &PluginRegistry, // , manager: &PluginsManager
+	) -> Self {
+		let mut panels_manager = Self::default();
+		let mut tools = Vec::new();
+		// Collect panels from enabled plugins
+		registry
+			.plugins
+			.iter()
+			.filter(|(_, state)| state.is_enabled)
+			.for_each(|(_, plugin)| {
+				plugin.panels.iter().for_each(|panel| {
+					panels_manager
+						.panels
+						.insert(ResourceId::panel(&plugin.name, &panel.name), panel.clone());
+				});
+				tools.extend(plugin.tools.clone());
+			});
+		info!("Processing panels");
 
-	pub fn from_plugins(registry: &PluginRegistry, manager: &PluginsManager) -> Self {
-		let enabled_plugins = manager.plugins.iter().filter(|(_, state)| state.enabled);
-		info!("processing pannels");
-		let mut panels = Self::default();
-
-		enabled_plugins.clone().for_each(|(typeid, plugin_state)| {
-			if let Some(plugin) = registry.plugins.get(typeid) {
-				for panel_cfg in plugin.get_panels() {
-					let panel_state = PanelState {
-						name: panel_cfg.name,
-						alignment: panel_cfg.alignment,
-						display_mode: panel_cfg.display_mode,
-						..Default::default()
-					};
-					panels.add_panel(panel_state);
+		// Place tools that want to be placed in panels from other plugins
+		tools.iter().for_each(|tool| match &tool.placement {
+			ToolPlacement::ByResourceId(ref resource_id) => {
+				if let Some(panel) = panels_manager.panels.get_mut(resource_id) {
+					info!("Adding tool '{}' to panel '{}'", tool.name, panel.name);
+					panel.tools.push(tool.clone());
+				} else {
+					warn!(
+						"Panel with resource id '{:?}' not found for tool '{}'",
+						resource_id, tool.name
+					);
 				}
 			}
+			ToolPlacement::PanelByAlignment(_alignment) => todo!(),
+			ToolPlacement::OwnPanel(_panel_config) => todo!(),
 		});
 
-		info!("processing tooks");
-		enabled_plugins.for_each(|(typeid, plugin_state)| {
-			if let Some(plugin) = registry.plugins.get(typeid) {
-				for tool in plugin.get_tools() {
-					match tool.placement {
-						ToolPlacement::PanelByName(ref panel_name) => {
-							if let Some(panel) = panels.get_panel_by_name(&panel_name) {
-								info!("Adding tool '{}' to panel '{}'", tool.name, panel_name);
-								panel.tools.push(tool);
-							} else {
-								warn!("Panel with name '{}' not found for tool '{}'", panel_name, tool.name);
-							}
-						}
-						ToolPlacement::PanelByAlignment(_alignment) => {
-							todo!()
-						}
-						ToolPlacement::OwnPanel(_panel_config) => todo!(),
-					}
-				}
-			}
-		});
-		panels
+		panels_manager
 	}
 }
