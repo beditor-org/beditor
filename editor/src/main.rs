@@ -4,8 +4,8 @@ use editor::{
 	components::App,
 	plugin::{
 		asset_browser::asset_browser_plugin, bep::plugin::bep_plugin, core::plugin::core_plugin, dumy::plugin::dumy_plugin,
-		game_process::game_process_plugin, transport::stdio::stdio_transport_plugin, viewport::plugin::viewport_plugin,
-		PluginBuilder,
+		game_process::game_process_plugin, scene_editor::plugin::scene_editor_plugin, transport::stdio::stdio_transport_plugin,
+		viewport::plugin::viewport_plugin, PluginBuilder,
 	},
 	EditorConfig, EditorContext,
 };
@@ -28,6 +28,7 @@ fn main() {
 		viewport_plugin,
 		asset_browser_plugin,
 		bep_plugin,
+		scene_editor_plugin,
 	];
 	dioxus::LaunchBuilder::desktop()
 		.with_cfg(window_cfg)

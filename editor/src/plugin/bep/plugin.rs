@@ -52,7 +52,6 @@ fn entry() -> Element {
 							Ok(message) => match message {
 								BepMessage::EntitiesListUpdate { entities: new_entities } => {
 									entities.set(new_entities);
-									println!("Received entities list update {:#?}", entities);
 								}
 								_ => {}
 							},

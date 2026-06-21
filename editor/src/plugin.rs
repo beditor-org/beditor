@@ -1,9 +1,9 @@
 pub mod asset_browser;
+pub mod bep;
 pub mod core;
 pub mod dumy;
 pub mod game_process;
-// pub mod scene_editor;
-pub mod bep;
+pub mod scene_editor;
 pub mod transport;
 pub mod viewport;
 

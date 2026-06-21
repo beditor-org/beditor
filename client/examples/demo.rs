@@ -34,35 +34,123 @@ fn load_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn add_meshes(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
-	// Add meshes to the scene
+	// Ground
 	commands.spawn((
-		Mesh3d(meshes.add(Cuboid::new(2.0, 2.0, 2.0))),
-		MeshMaterial3d(materials.add(Color::srgb(0.8, 0.2, 0.3))),
-		Transform::from_xyz(0.0, 0.5, 0.0),
-		Name::new("Spinning Cube"),
-	));
-
-	commands.spawn((
-		Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
+		Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
 		MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
 		Transform::from_xyz(0.0, 0.0, 0.0),
 		Name::new("Ground"),
 	));
 
-	// Light
+	// Robot — parent entity with children
+	let robot = commands
+		.spawn((Transform::from_xyz(0.0, 0.0, 0.0), Visibility::default(), Name::new("Robot")))
+		.id();
+
+	let body = commands
+		.spawn((
+			Mesh3d(meshes.add(Cuboid::new(1.0, 1.5, 0.6))),
+			MeshMaterial3d(materials.add(Color::srgb(0.4, 0.6, 0.9))),
+			Transform::from_xyz(0.0, 1.5, 0.0),
+			Name::new("Body"),
+		))
+		.id();
+
+	let head = commands
+		.spawn((
+			Mesh3d(meshes.add(Cuboid::new(0.7, 0.7, 0.7))),
+			MeshMaterial3d(materials.add(Color::srgb(0.9, 0.8, 0.5))),
+			Transform::from_xyz(0.0, 1.1, 0.0),
+			Name::new("Head"),
+		))
+		.id();
+
+	let left_eye = commands
+		.spawn((
+			Mesh3d(meshes.add(Sphere::new(0.1))),
+			MeshMaterial3d(materials.add(Color::srgb(0.1, 0.1, 0.1))),
+			Transform::from_xyz(-0.2, 0.1, 0.36),
+			Name::new("Left Eye"),
+		))
+		.id();
+
+	let right_eye = commands
+		.spawn((
+			Mesh3d(meshes.add(Sphere::new(0.1))),
+			MeshMaterial3d(materials.add(Color::srgb(0.1, 0.1, 0.1))),
+			Transform::from_xyz(0.2, 0.1, 0.36),
+			Name::new("Right Eye"),
+		))
+		.id();
+
+	let left_arm = commands
+		.spawn((
+			Mesh3d(meshes.add(Cuboid::new(0.3, 1.2, 0.3))),
+			MeshMaterial3d(materials.add(Color::srgb(0.4, 0.6, 0.9))),
+			Transform::from_xyz(-0.75, 0.0, 0.0),
+			Name::new("Left Arm"),
+		))
+		.id();
+
+	let right_arm = commands
+		.spawn((
+			Mesh3d(meshes.add(Cuboid::new(0.3, 1.2, 0.3))),
+			MeshMaterial3d(materials.add(Color::srgb(0.4, 0.6, 0.9))),
+			Transform::from_xyz(0.75, 0.0, 0.0),
+			Name::new("Right Arm"),
+		))
+		.id();
+
+	// Build hierarchy: Robot > Body > (Head > (Left Eye, Right Eye), Left Arm, Right Arm)
+	commands.entity(head).add_children(&[left_eye, right_eye]);
+	commands.entity(body).add_children(&[head, left_arm, right_arm]);
+	commands.entity(robot).add_children(&[body]);
+
+	// A separate tree: Lamp post
+	let lamp_post = commands
+		.spawn((
+			Transform::from_xyz(4.0, 0.0, 0.0),
+			Visibility::default(),
+			Name::new("Lamp Post"),
+		))
+		.id();
+
+	let pole = commands
+		.spawn((
+			Mesh3d(meshes.add(Cuboid::new(0.15, 4.0, 0.15))),
+			MeshMaterial3d(materials.add(Color::srgb(0.5, 0.5, 0.5))),
+			Transform::from_xyz(0.0, 2.0, 0.0),
+			Name::new("Pole"),
+		))
+		.id();
+
+	let lamp = commands
+		.spawn((
+			PointLight {
+				intensity: 2000.0,
+				shadows_enabled: true,
+				..default()
+			},
+			Transform::from_xyz(0.0, 4.2, 0.0),
+			Name::new("Lamp"),
+		))
+		.id();
+
+	commands.entity(lamp_post).add_children(&[pole, lamp]);
+
+	// Main ambient light + camera
 	commands.spawn((
 		PointLight {
-			intensity: 1500.0,
-			shadows_enabled: true,
+			intensity: 800.0,
 			..default()
 		},
-		Transform::from_xyz(4.0, 8.0, 4.0),
-		Name::new("Main Light"),
+		Transform::from_xyz(-4.0, 6.0, -4.0),
+		Name::new("Fill Light"),
 	));
 
 	commands.spawn((
 		Camera3d::default(),
-		Transform::from_xyz(-3.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+		Transform::from_xyz(-4.0, 5.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
 		Name::new("Main Camera"),
 		EditorCamera,
 	));
