@@ -76,8 +76,8 @@ pub fn setup_editor_camera(
 	commands.entity(entity).insert(CameraRotation { pitch: 0.0, yaw: 0.0 });
 
 	let size = bevy::render::render_resource::Extent3d {
-		width: 640,
-		height: 480,
+		width: 1280,
+		height: 720,
 		..Default::default()
 	};
 

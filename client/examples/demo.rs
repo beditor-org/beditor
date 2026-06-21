@@ -8,6 +8,7 @@ fn main() {
 			.set(WindowPlugin {
 				primary_window: Some(Window {
 					title: "🎮 Game Viewport".to_string(),
+					mode: bevy::window::WindowMode::BorderlessFullscreen(bevy::window::MonitorSelection::Current),
 					..default()
 				}),
 				..default()

@@ -83,7 +83,7 @@ fn setup_cpu_image(mut commands: Commands, mut images: ResMut<Assets<Image>>, ex
 	if !existing.is_empty() {
 		return; // Already created
 	}
-	let cpu_image = Image::new_target_texture(640, 480, bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb, None);
+	let cpu_image = Image::new_target_texture(1280, 720, bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb, None);
 	let handle = images.add(cpu_image);
 	commands.spawn(ImageToSave(handle));
 }
@@ -165,8 +165,8 @@ fn extract_image_copiers(
 
 		let image_handle = img_target.handle.clone();
 		let size = Extent3d {
-			width: 640,
-			height: 480,
+			width: 1280,
+			height: 720,
 			..Default::default()
 		};
 
@@ -341,8 +341,8 @@ fn save_captured_frames(
 	*last_frame_hash = Some(current_hash);
 
 	// Dimensions (hardcoded, same as during creation)
-	let width = 640u32;
-	let height = 480u32;
+	let width = 1280u32;
+	let height = 720u32;
 	let row_bytes = width as usize * 4; // RGBA = 4 bytes per pixel
 	let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
 
@@ -378,7 +378,7 @@ fn save_captured_frames(
 	};
 
 	let mut jpeg_bytes = std::io::Cursor::new(Vec::new());
-	let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 60);
+	let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 90);
 	if dynamic_img.write_with_encoder(encoder).is_err() {
 		return;
 	}

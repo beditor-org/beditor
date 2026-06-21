@@ -33,15 +33,23 @@ pub fn Viewport() -> Element {
 				(function() {{
 					const canvas = document.getElementById('{}');
 					if (!canvas) return;
-					
+
+					const container = canvas.parentElement;
+					const w = container.clientWidth;
+					const h = container.clientHeight;
+					if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {{
+						canvas.width  = w;
+						canvas.height = h;
+					}}
+
 					const ctx = canvas.getContext('2d', {{ alpha: false }});
 					const img = new Image();
 					img.onload = function() {{
-						if (canvas.width !== this.width || canvas.height !== this.height) {{
-							canvas.width = this.width;
-							canvas.height = this.height;
-						}}
-						ctx.drawImage(this, 0, 0);
+						ctx.clearRect(0, 0, canvas.width, canvas.height);
+						const scale = Math.min(canvas.width / this.width, canvas.height / this.height);
+						const x = (canvas.width  - this.width  * scale) / 2;
+						const y = (canvas.height - this.height * scale) / 2;
+						ctx.drawImage(this, x, y, this.width * scale, this.height * scale);
 					}};
 					img.src = 'data:image/jpeg;base64,{}';
 				}})();
