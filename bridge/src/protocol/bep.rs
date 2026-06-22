@@ -100,8 +100,9 @@ pub enum BepMessage {
 	GameReady,
 	/// Full snapshot of all entities currently in the world (id + name + parent only).
 	EntitiesListUpdate { entities: Vec<EntityInfo> },
-	/// Sent by the editor to select an entity. The game responds with `EntityComponentsUpdate`.
-	SelectEntity { entity: u32 },
+	/// Sent by the editor to select an entity (`Some(id)`) or deselect (`None`).
+	/// The game responds with `EntityComponentsUpdate` and keeps pushing updates until deselected.
+	SelectEntity { entity: Option<u32> },
 	/// Sent by the game with all components of the currently selected entity.
 	/// Re-sent whenever the selected entity's components change.
 	EntityComponentsUpdate { entity: u32, components: Vec<ComponentData> },
@@ -138,7 +139,7 @@ impl BepProtocol {
 			.send(&BepMessage::EntityComponentsUpdate { entity, components });
 	}
 
-	pub fn select_entity(&self, entity: u32) {
+	pub fn select_entity(&self, entity: Option<u32>) {
 		let _ = self.connection.send(&BepMessage::SelectEntity { entity });
 	}
 }

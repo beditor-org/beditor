@@ -1,4 +1,6 @@
-use bevy::{ecs::resource::IsResource, prelude::*};
+use std::time::Duration;
+
+use bevy::{ecs::resource::IsResource, prelude::*, time::common_conditions::on_timer};
 use bridge::protocol::bep::{BepProtocol, ComponentData, EntityInfo, EntityKind, FieldData, FieldValue};
 
 use crate::app::ResMultiplexer;
@@ -8,11 +10,22 @@ pub struct BepResource {
 	pub protocol: BepProtocol,
 }
 
+#[derive(Resource, Default)]
+struct InspectorState {
+	selected: Option<u32>,
+	last_components: Vec<ComponentData>,
+}
+
 pub struct BepPlugin;
 impl Plugin for BepPlugin {
 	fn build(&self, app: &mut App) {
-		app.add_systems(PostStartup, send_game_ready_and_entities)
-			.add_systems(Update, poll_bep_messages);
+		app.init_resource::<InspectorState>()
+			.add_systems(PostStartup, send_game_ready_and_entities)
+			.add_systems(Update, poll_bep_messages)
+			.add_systems(
+				Update,
+				watch_selected_entity.run_if(on_timer(Duration::from_millis(150))),
+			);
 	}
 }
 
@@ -117,10 +130,39 @@ fn poll_bep_messages(world: &mut World) {
 	while let Ok(Some(msg)) = protocol.connection.try_recv() {
 		match msg {
 			BepMessage::SelectEntity { entity: id } => {
-				let components = collect_entity_components(world, id);
-				protocol.entity_components_update(id, components);
+				if let Some(mut state) = world.get_resource_mut::<InspectorState>() {
+					if state.selected != id {
+						state.selected = id;
+						state.last_components.clear();
+					}
+				}
 			}
 			_ => {}
+		}
+	}
+}
+
+fn watch_selected_entity(world: &mut World) {
+	let (selected, protocol) = {
+		let state = world.get_resource::<InspectorState>();
+		let bep = world.get_resource::<BepResource>();
+		match (state, bep) {
+			(Some(s), Some(b)) => (s.selected, b.protocol.clone()),
+			_ => return,
+		}
+	};
+
+	let Some(entity_id) = selected else {
+		return;
+	};
+
+	let components = collect_entity_components(world, entity_id);
+
+	let state = world.get_resource_mut::<InspectorState>();
+	if let Some(mut state) = state {
+		if components != state.last_components {
+			protocol.entity_components_update(entity_id, components.clone());
+			state.last_components = components;
 		}
 	}
 }

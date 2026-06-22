@@ -60,8 +60,9 @@ fn entry() -> Element {
 		let id = selected_entity.read();
 		if let Some(protocol) = try_use_context::<BepProtocol>() {
 			if let Some(entity) = *id {
-				protocol.select_entity(entity);
+				protocol.select_entity(Some(entity));
 			} else {
+				protocol.select_entity(None);
 				entity_components.set(vec![]);
 			}
 		}
