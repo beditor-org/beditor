@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail};
 use dioxus::{core::use_drop, prelude::*};
 use rfd::AsyncFileDialog;
 use std::{
@@ -11,7 +11,7 @@ use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tracing::info;
 
 use crate::{
-	config::{EditorConfig, RecentProject},
+	config::EditorConfig,
 	event::{Events, OpenGameEvent, SwitchWorkspaceEvent},
 	plugin::{core::plugin::CORE_SCENE_EDITOR_WORKSPACE, Plugin, PluginRegistry},
 };
