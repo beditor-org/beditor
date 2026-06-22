@@ -12,14 +12,11 @@ use bevy::{
 		Extract, RenderApp,
 	},
 };
-use bridge::protocol::frame_stream::FrameStreamProtocol;
 use flume::{bounded, Receiver, Sender};
 use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-use std::io::{self, Write};
 use std::sync::{atomic::AtomicBool, Arc};
 
-use crate::app::{ResMultiplexer, ViewportStream};
+use crate::app::ViewportStream;
 
 // ============================================================================
 // RESOURCES - for communication between Main World and Render World
@@ -35,6 +32,14 @@ pub struct MainWorldReceiver(Receiver<Vec<u8>>);
 #[derive(Resource, Deref)]
 pub struct RenderWorldSender(Sender<Vec<u8>>);
 
+/// Channel for forwarding raw GPU pixels to the background JPEG encoder thread
+#[derive(Resource)]
+struct RawFrameSender(flume::Sender<Vec<u8>>);
+
+/// Channel for receiving encoded base64 frames from the background encoder thread
+#[derive(Resource, Deref)]
+struct EncodedFrameReceiver(flume::Receiver<String>);
+
 // ============================================================================
 // PLUGIN - entry point for the entire capture system
 // ============================================================================
@@ -43,36 +48,111 @@ pub struct FrameCapturePlugin;
 
 impl Plugin for FrameCapturePlugin {
 	fn build(&self, app: &mut App) {
-		// Bounded channel: drop frames under back-pressure instead of OOM-ing
-		let (sender, receiver) = bounded(2);
+		// Render World → Main World channel (raw GPU pixels, bounded to drop under back-pressure)
+		let (mw_sender, mw_receiver) = bounded(2);
 
-		// Main World: add receiver and save system
-		app.insert_resource(MainWorldReceiver(receiver))
+		// Main World → encoder thread channel (raw pixels)
+		let (raw_tx, raw_rx) = flume::bounded::<Vec<u8>>(2);
+		// Encoder thread → Main World channel (encoded base64 strings)
+		let (enc_tx, enc_rx) = flume::bounded::<String>(2);
+
+		// Spawn background JPEG encoder thread so main/render threads are never blocked by encoding
+		std::thread::spawn(move || {
+			let mut last_hash: Option<u64> = None;
+			loop {
+				// Block until a frame arrives
+				let first = match raw_rx.recv() {
+					Ok(f) => f,
+					Err(_) => break,
+				};
+				// Drain any queued frames — always encode the freshest one
+				let image_data = std::iter::once(first)
+					.chain(std::iter::from_fn(|| raw_rx.try_recv().ok()))
+					.last()
+					.unwrap();
+
+				// Skip empty frames (first few while GPU hasn't rendered yet)
+				if image_data.iter().all(|&b| b == 0) {
+					continue;
+				}
+
+				// Dedup: skip if frame unchanged (static scene)
+				let current_hash = {
+					use std::hash::{Hash, Hasher};
+					let mut hasher = DefaultHasher::new();
+					image_data.hash(&mut hasher);
+					hasher.finish()
+				};
+				if last_hash == Some(current_hash) {
+					continue;
+				}
+				last_hash = Some(current_hash);
+
+				// Strip GPU row-alignment padding
+				let width = 1280u32;
+				let height = 720u32;
+				let row_bytes = width as usize * 4;
+				let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
+				let actual_data: Vec<u8> = if row_bytes == aligned_row_bytes {
+					image_data
+				} else {
+					image_data
+						.chunks(aligned_row_bytes)
+						.take(height as usize)
+						.flat_map(|row| &row[..row_bytes])
+						.copied()
+						.collect()
+				};
+
+				// Encode to JPEG
+				let mut bevy_img = Image::new_target_texture(
+					width,
+					height,
+					bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+					None,
+				);
+				bevy_img.data = Some(actual_data);
+				let Ok(dynamic_img) = bevy_img.try_into_dynamic() else {
+					continue;
+				};
+				let mut jpeg_bytes = std::io::Cursor::new(Vec::new());
+				let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 90);
+				if dynamic_img.write_with_encoder(encoder).is_err() {
+					continue;
+				}
+
+				// Base64-encode and forward; drop if receiver is busy
+				use base64::{engine::general_purpose, Engine as _};
+				let base64_data = general_purpose::STANDARD.encode(jpeg_bytes.into_inner());
+				let _ = enc_tx.try_send(base64_data);
+			}
+		});
+
+		// Main World: receive raw frames, forward to encoder, and send encoded frames out
+		app.insert_resource(MainWorldReceiver(mw_receiver))
+			.insert_resource(RawFrameSender(raw_tx))
+			.insert_resource(EncodedFrameReceiver(enc_rx))
 			.add_systems(First, setup_cpu_image)
-			.add_systems(Last, save_captured_frames);
+			.add_systems(Last, (save_captured_frames, send_encoded_frames).chain());
 
 		// Render World: setup entire render pipeline
 		let render_app = app.sub_app_mut(RenderApp);
 
-		// Add sender to Render World
-		render_app.insert_resource(RenderWorldSender(sender));
-
-		// Extract system (Main → Render copy)
-		render_app.add_systems(bevy::render::ExtractSchedule, extract_image_copiers);
-
-		// Copy texture → buffer (runs after rendering, before receive)
-		render_app.add_systems(
-			bevy::render::Render,
-			copy_image_to_buffer.after(bevy::render::RenderSystems::Render),
-		);
-
-		// System for reading from buffer (after copying)
-		render_app.add_systems(
-			bevy::render::Render,
-			receive_image_from_buffer
-				.after(bevy::render::RenderSystems::Render)
-				.after(copy_image_to_buffer),
-		);
+		render_app
+			.insert_resource(RenderWorldSender(mw_sender))
+			// Pre-allocate ImageCopiers so the extract system can reuse the buffer each frame
+			.init_resource::<ImageCopiers>()
+			.add_systems(bevy::render::ExtractSchedule, extract_image_copiers)
+			.add_systems(
+				bevy::render::Render,
+				copy_image_to_buffer.after(bevy::render::RenderSystems::Render),
+			)
+			.add_systems(
+				bevy::render::Render,
+				receive_image_from_buffer
+					.after(bevy::render::RenderSystems::Render)
+					.after(copy_image_to_buffer),
+			);
 
 		eprintln!("✅ FrameCapturePlugin initialized");
 	}
@@ -148,14 +228,17 @@ pub struct ImageCopiers(pub Vec<ImageCopier>);
 // EXTRACT SYSTEMS - copy data from Main World → Render World
 // ============================================================================
 
-/// Extract system that creates ImageCopier for EditorCamera and copies to Render World
-/// Runs every frame before rendering
+/// Extract system that creates ImageCopier for EditorCamera and copies to Render World.
+/// The GPU buffer is allocated once and reused every frame to avoid per-frame allocation cost.
 fn extract_image_copiers(
-	mut commands: Commands,
+	mut image_copiers: ResMut<ImageCopiers>,
 	cameras: Extract<Query<(&Camera, &RenderTarget), With<super::app::EditorCamera>>>,
 	render_device: Res<RenderDevice>,
 ) {
-	let mut copiers = Vec::new();
+	// Buffer already exists — reuse it (unmap() was called after last readback)
+	if !image_copiers.is_empty() {
+		return;
+	}
 
 	for (_camera, render_target) in cameras.iter() {
 		let RenderTarget::Image(img_target) = render_target else {
@@ -168,10 +251,8 @@ fn extract_image_copiers(
 			height: 720,
 			..Default::default()
 		};
-		copiers.push(ImageCopier::new(image_handle, size, &render_device));
+		image_copiers.push(ImageCopier::new(image_handle, size, &render_device));
 	}
-
-	commands.insert_resource(ImageCopiers(copiers));
 }
 
 // ============================================================================
@@ -289,100 +370,28 @@ fn receive_image_from_buffer(image_copiers: Res<ImageCopiers>, render_device: Re
 // MAIN WORLD SYSTEMS - data processing and saving
 // ============================================================================
 
-/// System in Main World that receives data from Render World and saves to file
-/// Runs in Last schedule
-fn save_captured_frames(
-	receiver: Res<MainWorldReceiver>,
-	mut frame_counter: Local<u32>,
-	mut last_frame_time: Local<Option<std::time::Instant>>,
-	mut last_frame_hash: Local<Option<u64>>,
-	viewport_stream: Res<ViewportStream>,
-) {
-	// Throttle to ~60 FPS for output
-	let now = std::time::Instant::now();
-	if let Some(last_time) = *last_frame_time {
-		if now.duration_since(last_time).as_secs_f32() < 0.0167 {
-			// Skip this frame - too soon (60 FPS = ~16.67ms)
-			return;
-		}
-	}
-
-	// Use try_recv to not block (non-blocking)
-	// May have multiple frames in queue - take latest
-	let mut latest_frame: Option<Vec<u8>> = None;
+/// Drain raw GPU pixels from the render-world channel and forward to the background encoder.
+/// Runs in Last schedule — must be near-instant (no encoding here).
+fn save_captured_frames(receiver: Res<MainWorldReceiver>, raw_sender: Res<RawFrameSender>) {
+	// Drain channel, keep only the freshest frame
+	let mut latest: Option<Vec<u8>> = None;
 	while let Ok(data) = receiver.try_recv() {
-		latest_frame = Some(data);
+		latest = Some(data);
 	}
-
-	let Some(image_data) = latest_frame else {
-		return; // No new frames
-	};
-
-	// Update last frame time
-	*last_frame_time = Some(now);
-
-	// Quick hash check - skip if frame didn't change (static scene optimization)
-	use std::collections::hash_map::DefaultHasher;
-	use std::hash::{Hash, Hasher};
-	let mut hasher = DefaultHasher::new();
-	image_data.hash(&mut hasher);
-	let current_hash = hasher.finish();
-
-	if let Some(prev_hash) = *last_frame_hash {
-		if current_hash == prev_hash {
-			// Frame unchanged - skip encoding/sending entirely
-			return;
-		}
+	if let Some(data) = latest {
+		// try_send: drop silently if encoder is still busy with previous frame
+		let _ = raw_sender.0.try_send(data);
 	}
-	*last_frame_hash = Some(current_hash);
+}
 
-	// Dimensions (hardcoded, same as during creation)
-	let width = 1280u32;
-	let height = 720u32;
-	let row_bytes = width as usize * 4; // RGBA = 4 bytes per pixel
-	let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
-
-	// If there's padding - need to remove it
-	let actual_data: Vec<u8> = if row_bytes == aligned_row_bytes {
-		image_data
-	} else {
-		image_data
-			.chunks(aligned_row_bytes)
-			.take(height as usize)
-			.flat_map(|row| &row[..row_bytes])
-			.copied()
-			.collect()
-	};
-
-	// Skip empty frames (first few while GPU hasn't finished rendering)
-	let non_zero_count = actual_data.iter().filter(|&&b| b != 0).count();
-	if non_zero_count == 0 {
-		return;
+/// Drain encoded frames from the background encoder and send to the editor.
+/// Chained after save_captured_frames in the Last schedule.
+fn send_encoded_frames(enc_receiver: Res<EncodedFrameReceiver>, viewport_stream: Res<ViewportStream>) {
+	let mut latest: Option<String> = None;
+	while let Ok(encoded) = enc_receiver.0.try_recv() {
+		latest = Some(encoded);
 	}
-
-	// JPEG with LOW quality (fast encoding, small size, hardware decode in browser)
-	let mut bevy_img = Image::new_target_texture(
-		width,
-		height,
-		bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
-		None,
-	);
-	bevy_img.data = Some(actual_data);
-
-	let Ok(dynamic_img) = bevy_img.try_into_dynamic() else {
-		return;
-	};
-
-	let mut jpeg_bytes = std::io::Cursor::new(Vec::new());
-	let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_bytes, 90);
-	if dynamic_img.write_with_encoder(encoder).is_err() {
-		return;
+	if let Some(encoded) = latest {
+		let _ = viewport_stream.viewport.send(&encoded);
 	}
-
-	use base64::{engine::general_purpose, Engine as _};
-	let base64_data = general_purpose::STANDARD.encode(jpeg_bytes.into_inner());
-
-	let _ = viewport_stream.viewport.send(&base64_data);
-
-	*frame_counter += 1;
 }
