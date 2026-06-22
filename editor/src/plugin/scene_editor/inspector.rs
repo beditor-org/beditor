@@ -24,6 +24,17 @@ pub fn Inspector() -> Element {
 fn ComponentBlock(component: ComponentData) -> Element {
 	let mut collapsed = use_signal(|| false);
 
+	// Marker component (no fields) — show as a flat tag, no expand/collapse
+	if component.fields.is_empty() {
+		return rsx! {
+			div { class: "mb-1 px-2 py-1 border border-border rounded flex items-center gap-2",
+				span { class: "text-xs text-border mr-1", "◆" }
+				span { class: "text-sm text-text", "{component.short_name}" }
+				span { class: "text-xs text-text-muted italic", "marker" }
+			}
+		};
+	}
+
 	rsx! {
 		div { class: "mb-1 border border-border rounded",
 			// Header
@@ -36,10 +47,8 @@ fn ComponentBlock(component: ComponentData) -> Element {
 			// Fields
 			if !collapsed() {
 				div { class: "px-2 py-1",
-					if !component.fields.is_empty() {
-						for field in component.fields.iter() {
-							FieldRow { field: field.clone() }
-						}
+					for field in component.fields.iter() {
+						FieldRow { field: field.clone() }
 					}
 				}
 			}
