@@ -22,19 +22,20 @@ pub struct EntityInfo {
 }
 
 /// A single serialized component attached to an entity.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ComponentData {
 	pub type_name: String,
 	pub short_name: String,
 	pub fields: Vec<FieldData>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FieldData {
 	pub name: String,
+	pub field_type: String,
 	pub value: FieldValue,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum FieldValue {
 	F32(f32),
 	F64(f64),

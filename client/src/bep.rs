@@ -1,5 +1,5 @@
 use bevy::{ecs::resource::IsResource, prelude::*};
-use bridge::protocol::bep::{BepProtocol, ComponentData, EntityInfo, EntityKind};
+use bridge::protocol::bep::{BepProtocol, ComponentData, EntityInfo, EntityKind, FieldData, FieldValue};
 
 use crate::app::ResMultiplexer;
 
@@ -125,6 +125,181 @@ fn poll_bep_messages(world: &mut World) {
 	}
 }
 
+fn reflect_to_fields(reflected: &dyn Reflect) -> Vec<FieldData> {
+	use bevy::reflect::ReflectRef;
+
+	// Special case: bevy::core::Name — show the string directly
+	if let Some(name) = reflected.as_any().downcast_ref::<bevy::prelude::Name>() {
+		return vec![FieldData {
+			name: "name".to_string(),
+			field_type: "String".to_string(),
+			value: FieldValue::String(name.as_str().to_string()),
+		}];
+	}
+
+	match reflected.reflect_ref() {
+		ReflectRef::Struct(s) => (0..s.field_len())
+			.filter_map(|i| {
+				let field = s.field_at(i)?;
+				Some(FieldData {
+					name: s.name_at(i).unwrap_or("?").to_string(),
+					field_type: field.reflect_type_path().to_string(),
+					value: partial_reflect_to_value(field),
+				})
+			})
+			.collect(),
+		ReflectRef::TupleStruct(ts) => (0..ts.field_len())
+			.filter_map(|i| {
+				let field = ts.field(i)?;
+				Some(FieldData {
+					name: i.to_string(),
+					field_type: field.reflect_type_path().to_string(),
+					value: partial_reflect_to_value(field),
+				})
+			})
+			.collect(),
+		ReflectRef::Enum(e) => {
+			// Represent the current variant as a single synthetic field
+			let inner_fields: Vec<FieldData> = (0..e.field_len())
+				.filter_map(|i| {
+					let field = e.field_at(i)?;
+					let name = e.name_at(i).map(|s| s.to_string()).unwrap_or_else(|| i.to_string());
+					Some(FieldData {
+						name,
+						field_type: field.reflect_type_path().to_string(),
+						value: partial_reflect_to_value(field),
+					})
+				})
+				.collect();
+
+			let variant_value = if inner_fields.is_empty() {
+				FieldValue::Enum {
+					variant: e.variant_name().to_string(),
+					value: None,
+				}
+			} else {
+				FieldValue::Enum {
+					variant: e.variant_name().to_string(),
+					value: Some(Box::new(FieldValue::Struct(inner_fields))),
+				}
+			};
+			vec![FieldData {
+				name: "variant".to_string(),
+				field_type: reflected.reflect_type_path().to_string(),
+				value: variant_value,
+			}]
+		}
+		_ => vec![],
+	}
+}
+
+fn partial_reflect_to_value(value: &dyn bevy::reflect::PartialReflect) -> FieldValue {
+	use bevy::reflect::ReflectRef;
+
+	// Try downcasting to known primitive/math types via Reflect (full type info)
+	if let Some(r) = value.try_as_reflect() {
+		let any = r.as_any();
+		if let Some(v) = any.downcast_ref::<bool>() {
+			return FieldValue::Bool(*v);
+		}
+		if let Some(v) = any.downcast_ref::<f32>() {
+			return FieldValue::F32(*v);
+		}
+		if let Some(v) = any.downcast_ref::<f64>() {
+			return FieldValue::F64(*v);
+		}
+		if let Some(v) = any.downcast_ref::<i32>() {
+			return FieldValue::I32(*v);
+		}
+		if let Some(v) = any.downcast_ref::<u32>() {
+			return FieldValue::U32(*v);
+		}
+		if let Some(v) = any.downcast_ref::<i64>() {
+			return FieldValue::I64(*v);
+		}
+		if let Some(v) = any.downcast_ref::<u64>() {
+			return FieldValue::U64(*v);
+		}
+		if let Some(v) = any.downcast_ref::<u8>() {
+			return FieldValue::U32(*v as u32);
+		}
+		if let Some(v) = any.downcast_ref::<u16>() {
+			return FieldValue::U32(*v as u32);
+		}
+		if let Some(v) = any.downcast_ref::<i8>() {
+			return FieldValue::I32(*v as i32);
+		}
+		if let Some(v) = any.downcast_ref::<i16>() {
+			return FieldValue::I32(*v as i32);
+		}
+		if let Some(v) = any.downcast_ref::<usize>() {
+			return FieldValue::U64(*v as u64);
+		}
+		if let Some(v) = any.downcast_ref::<isize>() {
+			return FieldValue::I64(*v as i64);
+		}
+		if let Some(v) = any.downcast_ref::<String>() {
+			return FieldValue::String(v.clone());
+		}
+		if let Some(v) = any.downcast_ref::<Vec2>() {
+			return FieldValue::Vec2 { x: v.x, y: v.y };
+		}
+		if let Some(v) = any.downcast_ref::<Vec3>() {
+			return FieldValue::Vec3 { x: v.x, y: v.y, z: v.z };
+		}
+		if let Some(v) = any.downcast_ref::<Vec4>() {
+			return FieldValue::Vec4 {
+				x: v.x,
+				y: v.y,
+				z: v.z,
+				w: v.w,
+			};
+		}
+		if let Some(v) = any.downcast_ref::<Quat>() {
+			return FieldValue::Quat {
+				x: v.x,
+				y: v.y,
+				z: v.z,
+				w: v.w,
+			};
+		}
+		if let Some(v) = any.downcast_ref::<bevy::color::LinearRgba>() {
+			return FieldValue::Color {
+				r: v.red,
+				g: v.green,
+				b: v.blue,
+				a: v.alpha,
+			};
+		}
+	}
+
+	// Recurse into composite types
+	match value.reflect_ref() {
+		ReflectRef::Struct(s) => {
+			let fields = (0..s.field_len())
+				.filter_map(|i| {
+					let field = s.field_at(i)?;
+					Some(FieldData {
+						name: s.name_at(i).unwrap_or("?").to_string(),
+						field_type: field.reflect_type_path().to_string(),
+						value: partial_reflect_to_value(field),
+					})
+				})
+				.collect();
+			FieldValue::Struct(fields)
+		}
+		ReflectRef::Enum(e) => FieldValue::Enum {
+			variant: e.variant_name().to_string(),
+			value: None,
+		},
+		ReflectRef::List(l) => {
+			let values = (0..l.len()).filter_map(|i| l.get(i)).map(partial_reflect_to_value).collect();
+			FieldValue::List(values)
+		}
+		_ => FieldValue::Unknown(serde_json::Value::Null),
+	}
+}
+
 fn collect_entity_components(world: &World, entity_id: u32) -> Vec<ComponentData> {
 	let type_registry = world.resource::<AppTypeRegistry>().clone();
 	let registry = type_registry.read();
@@ -143,10 +318,13 @@ fn collect_entity_components(world: &World, entity_id: u32) -> Vec<ComponentData
 			let registration = registry.get(type_id)?;
 			let type_info = registration.type_info();
 
+			let reflect_component = registration.data::<ReflectComponent>()?;
+			let reflected = reflect_component.reflect(entity_ref)?;
+
 			Some(ComponentData {
 				type_name: type_info.type_path().to_string(),
 				short_name: type_info.type_path_table().short_path().to_string(),
-				fields: vec![],
+				fields: reflect_to_fields(reflected),
 			})
 		})
 		.collect()
