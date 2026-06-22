@@ -49,7 +49,6 @@ fn TreeNode(item: TreeItem, on_select: Option<EventHandler<u32>>) -> Element {
 							}
 						}
 						span { class: "tree-node-label", "{item.label}" }
-						span { class: "tree-node-id", "({item.id})" }
 					}
 				}
 				CollapsibleContent {
@@ -72,7 +71,6 @@ fn TreeNode(item: TreeItem, on_select: Option<EventHandler<u32>>) -> Element {
 				},
 				span { class: "tree-node-icon", "◦" }
 				span { class: "tree-node-label", "{item.label}" }
-				span { class: "tree-node-id", "({item.id})" }
 			}
 		}
 	}
