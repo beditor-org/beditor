@@ -10,7 +10,7 @@ use bevy::{
 	winit::WinitPlugin,
 };
 use bridge::{
-	codec::{base64::Base64Codec, json::JsonCodec},
+	codec::{json::JsonCodec, raw::RawCodec},
 	connection::Connection,
 	multiplexer::Multiplexer,
 	protocol::{
@@ -76,8 +76,8 @@ pub fn setup_editor_camera(
 	commands.entity(entity).insert(CameraRotation { pitch: 0.0, yaw: 0.0 });
 
 	let size = bevy::render::render_resource::Extent3d {
-		width: 640,
-		height: 480,
+		width: 1280,
+		height: 720,
 		..Default::default()
 	};
 
@@ -130,7 +130,7 @@ pub struct ControlsStream {
 
 #[derive(Resource)]
 pub struct ViewportStream {
-	pub viewport: Connection<Base64Codec>,
+	pub viewport: Connection<RawCodec>,
 }
 
 pub trait EditorApp {
