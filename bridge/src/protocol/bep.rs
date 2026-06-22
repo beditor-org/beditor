@@ -3,6 +3,13 @@ use serde_json::Value;
 
 use crate::{codec::json::JsonCodec, connection::Connection, protocol::Protocol, TypeName};
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum EntityKind {
+	#[default]
+	Entity,
+	Resource,
+}
+
 /// Minimal entity info for hierarchy display.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EntityInfo {
@@ -10,14 +17,68 @@ pub struct EntityInfo {
 	pub name: String,
 	/// Parent entity id. `None` means root-level entity.
 	pub parent: Option<u32>,
+	#[serde(default)]
+	pub kind: EntityKind,
 }
 
 /// A single serialized component attached to an entity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComponentData {
-	/// Fully-qualified Rust type name, e.g. `"bevy_transform::components::transform::Transform"`.
 	pub type_name: String,
-	pub value: Value,
+	pub short_name: String,
+	pub fields: Vec<FieldData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FieldData {
+	pub name: String,
+	pub value: FieldValue,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum FieldValue {
+	F32(f32),
+	F64(f64),
+	I32(i32),
+	U32(u32),
+	I64(i64),
+	U64(u64),
+	Bool(bool),
+	String(String),
+	Vec2 {
+		x: f32,
+		y: f32,
+	},
+	Vec3 {
+		x: f32,
+		y: f32,
+		z: f32,
+	},
+	Vec4 {
+		x: f32,
+		y: f32,
+		z: f32,
+		w: f32,
+	},
+	Quat {
+		x: f32,
+		y: f32,
+		z: f32,
+		w: f32,
+	},
+	Color {
+		r: f32,
+		g: f32,
+		b: f32,
+		a: f32,
+	},
+	Struct(Vec<FieldData>),
+	List(Vec<FieldValue>),
+	Enum {
+		variant: String,
+		value: Option<Box<FieldValue>>,
+	},
+	// Fallback
+	Unknown(Value),
 }
 
 /// All messages exchanged over the BEP channel.
@@ -45,6 +106,7 @@ pub enum BepMessage {
 	EntityComponentsUpdate { entity: u32, components: Vec<ComponentData> },
 }
 
+#[derive(Clone)]
 pub struct BepProtocol {
 	pub connection: Connection<JsonCodec<BepMessage>>,
 }

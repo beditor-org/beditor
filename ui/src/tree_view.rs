@@ -10,20 +10,21 @@ pub struct TreeItem {
 }
 
 #[component]
-pub fn TreeView(items: Vec<TreeItem>) -> Element {
+pub fn TreeView(items: Vec<TreeItem>, on_select: Option<EventHandler<u32>>) -> Element {
 	rsx! {
 		div { class: "tree-view",
 			for item in items {
-				TreeNode { item: item.clone() }
+				TreeNode { item: item.clone(), on_select: on_select.clone() }
 			}
 		}
 	}
 }
 
 #[component]
-fn TreeNode(item: TreeItem) -> Element {
+fn TreeNode(item: TreeItem, on_select: Option<EventHandler<u32>>) -> Element {
 	let has_children = !item.children.is_empty();
 	let mut is_open = use_signal(|| false);
+	let id = item.id;
 
 	if has_children {
 		rsx! {
@@ -33,7 +34,13 @@ fn TreeNode(item: TreeItem) -> Element {
 					is_open.set(open);
 				},
 				CollapsibleTrigger {
-					div { class: "tree-node-trigger flex items-center gap-1",
+					div {
+						class: "tree-node-trigger flex items-center gap-1",
+						onclick: move |_| {
+							if let Some(h) = &on_select {
+								h.call(id);
+							}
+						},
 						span { class: "tree-node-icon",
 							if is_open() {
 								ChevronDown { size: 16 }
@@ -48,7 +55,7 @@ fn TreeNode(item: TreeItem) -> Element {
 				CollapsibleContent {
 					div { class: "pl-4 ml-2 border-l border-border",
 						for child in item.children {
-							TreeNode { item: child.clone() }
+							TreeNode { item: child.clone(), on_select: on_select.clone() }
 						}
 					}
 				}
@@ -56,7 +63,13 @@ fn TreeNode(item: TreeItem) -> Element {
 		}
 	} else {
 		rsx! {
-			div { class: "tree-node-leaf",
+			div {
+				class: "tree-node-leaf",
+				onclick: move |_| {
+					if let Some(h) = &on_select {
+						h.call(id);
+					}
+				},
 				span { class: "tree-node-icon", "◦" }
 				span { class: "tree-node-label", "{item.label}" }
 				span { class: "tree-node-id", "({item.id})" }

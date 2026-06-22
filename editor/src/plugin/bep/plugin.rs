@@ -2,7 +2,7 @@ use tokio::process::{ChildStdin, ChildStdout};
 
 use bridge::{
 	multiplexer::Multiplexer,
-	protocol::bep::{BepMessage, BepProtocol, EntityInfo},
+	protocol::bep::{BepMessage, BepProtocol, ComponentData, EntityInfo},
 };
 use dioxus::prelude::*;
 
@@ -38,12 +38,13 @@ fn entry() -> Element {
 	let mut world_initialized = use_signal(|| false);
 
 	let mut entities: Signal<Vec<EntityInfo>> = use_context_provider(|| Signal::new(vec![]));
+	let mut entity_components: Signal<Vec<ComponentData>> = use_context::<Signal<Vec<ComponentData>>>();
 
 	use_effect(move || {
 		if let Some(multiplexer) = multiplexer.read().as_ref() {
 			if game_process_attached() && !world_initialized() {
 				info!("Game process is attached, setting up World Protocol");
-				let protocol = multiplexer.register_protocol::<BepProtocol>();
+				let protocol = use_context_provider(|| multiplexer.register_protocol::<BepProtocol>());
 				info!("✓ World Protocol initialized");
 
 				spawn(async move {
@@ -52,6 +53,9 @@ fn entry() -> Element {
 							Ok(message) => match message {
 								BepMessage::EntitiesListUpdate { entities: new_entities } => {
 									entities.set(new_entities);
+								}
+								BepMessage::EntityComponentsUpdate { components, .. } => {
+									entity_components.set(components);
 								}
 								_ => {}
 							},

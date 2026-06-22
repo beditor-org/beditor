@@ -19,6 +19,7 @@ impl<E: std::error::Error + std::fmt::Display> std::fmt::Display for ConnectionE
 
 impl<E: std::error::Error + 'static> std::error::Error for ConnectionError<E> {}
 
+#[derive(Clone)]
 pub struct Connection<C: Codec> {
 	receiver: Receiver<Vec<u8>>,
 	sender: Sender<Vec<u8>>,
