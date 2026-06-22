@@ -59,12 +59,12 @@ impl Plugin for FrameCapturePlugin {
 		// Spawn background JPEG encoder thread so main/render threads are never blocked by encoding
 		std::thread::spawn(move || {
 			let mut last_hash: Option<u64> = None;
-			// [POINT 3] encoder perf stats
-			let mut enc_count: u32 = 0;
-			let mut enc_sum_us: u64 = 0;
-			let mut enc_max_us: u64 = 0;
-			let mut enc_dropped: u32 = 0;
-			let mut enc_window = std::time::Instant::now();
+			// // [POINT 3] encoder perf stats: (count, sum_us, max_us, window_start)
+			// let mut enc_count: u32 = 0;
+			// let mut enc_sum_us: u64 = 0;
+			// let mut enc_max_us: u64 = 0;
+			// let mut enc_dropped: u32 = 0;
+			// let mut enc_window = std::time::Instant::now();
 			loop {
 				// Block until a frame arrives
 				let first = match raw_rx.recv() {
@@ -110,44 +110,37 @@ impl Plugin for FrameCapturePlugin {
 						.collect()
 				};
 
-				// Encode to JPEG via mozjpeg
-				let jpeg_start = std::time::Instant::now();
+				// Encode to JPEG via mozjpeg (SIMD, ~5x faster than pure-Rust image crate)
+				// let jpeg_start = std::time::Instant::now();
 				let jpeg_bytes: Vec<u8> = {
 					let mut buf = Vec::new();
 					let mut comp = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_EXT_RGBA);
 					comp.set_size(width as usize, height as usize);
-					comp.set_quality(75.0);
+					comp.set_quality(90.0);
 					comp.set_fastest_defaults();
 					let mut started = comp.start_compress(&mut buf).expect("mozjpeg start failed");
 					started.write_scanlines(&actual_data).expect("mozjpeg write failed");
 					started.finish().expect("mozjpeg finish failed");
 					buf
 				};
-				let jpeg_us = jpeg_start.elapsed().as_micros() as u64;
+				// let jpeg_us = jpeg_start.elapsed().as_micros() as u64;
 
 				let _ = enc_tx.try_send(jpeg_bytes);
 
-				// [POINT 3] Update encoder stats
-				enc_count += 1;
-				enc_sum_us += jpeg_us;
-				if jpeg_us > enc_max_us {
-					enc_max_us = jpeg_us;
-				}
-				let now = std::time::Instant::now();
-				if now.duration_since(enc_window).as_secs_f32() >= 1.0 {
-					if enc_count > 0 {
-						eprintln!(
-							"[PERF:3] encoder_fps={enc_count} jpeg_avg={:.1}ms total_max={:.1}ms dropped={enc_dropped}",
-							enc_sum_us as f32 / enc_count as f32 / 1000.0,
-							enc_max_us as f32 / 1000.0
-						);
-					}
-					enc_count = 0;
-					enc_sum_us = 0;
-					enc_max_us = 0;
-					enc_dropped = 0;
-					enc_window = now;
-				}
+				// // [POINT 3] Update encoder stats
+				// enc_count += 1;
+				// enc_sum_us += jpeg_us;
+				// if jpeg_us > enc_max_us { enc_max_us = jpeg_us; }
+				// let now = std::time::Instant::now();
+				// if now.duration_since(enc_window).as_secs_f32() >= 1.0 {
+				// 	if enc_count > 0 {
+				// 		eprintln!("[PERF:3] encoder_fps={enc_count} jpeg_avg={:.1}ms total_max={:.1}ms dropped={enc_dropped}",
+				// 			enc_sum_us as f32 / enc_count as f32 / 1000.0,
+				// 			enc_max_us as f32 / 1000.0);
+				// 	}
+				// 	enc_count = 0; enc_sum_us = 0; enc_max_us = 0; enc_dropped = 0;
+				// 	enc_window = now;
+				// }
 			}
 		});
 
@@ -434,16 +427,5 @@ fn send_encoded_frames(
 	}
 	if let Some(encoded) = latest {
 		let _ = viewport_stream.viewport.send(&encoded);
-
-		// [POINT 4] Count wire send FPS
-		let (count, win_start) = &mut *wire_stats;
-		*count += 1;
-		let now = std::time::Instant::now();
-		let win = win_start.get_or_insert(now);
-		if now.duration_since(*win).as_secs_f32() >= 1.0 {
-			eprintln!("[PERF:4] wire_fps={count}");
-			*count = 0;
-			*win_start = Some(now);
-		}
 	}
 }
