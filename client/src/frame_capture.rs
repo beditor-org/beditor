@@ -13,7 +13,7 @@ use bevy::{
 	},
 };
 use bridge::protocol::frame_stream::FrameStreamProtocol;
-use flume::{bounded, unbounded, Receiver, Sender};
+use flume::{bounded, Receiver, Sender};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Write};
@@ -43,8 +43,8 @@ pub struct FrameCapturePlugin;
 
 impl Plugin for FrameCapturePlugin {
 	fn build(&self, app: &mut App) {
-		// Create unbounded channel (no queue size limit)
-		let (sender, receiver) = unbounded();
+		// Bounded channel: drop frames under back-pressure instead of OOM-ing
+		let (sender, receiver) = bounded(2);
 
 		// Main World: add receiver and save system
 		app.insert_resource(MainWorldReceiver(receiver))
@@ -157,10 +157,9 @@ fn extract_image_copiers(
 ) {
 	let mut copiers = Vec::new();
 
-	// For each EditorCamera create ImageCopier
 	for (_camera, render_target) in cameras.iter() {
 		let RenderTarget::Image(img_target) = render_target else {
-			continue; // Skip cameras without Image target
+			continue;
 		};
 
 		let image_handle = img_target.handle.clone();
@@ -169,13 +168,9 @@ fn extract_image_copiers(
 			height: 720,
 			..Default::default()
 		};
-
-		// Create ImageCopier IN RENDER WORLD (RenderDevice is available here!)
-		let copier = ImageCopier::new(image_handle, size, &render_device);
-		copiers.push(copier);
+		copiers.push(ImageCopier::new(image_handle, size, &render_device));
 	}
 
-	// Insert as Resource in Render World
 	commands.insert_resource(ImageCopiers(copiers));
 }
 
@@ -280,9 +275,10 @@ fn receive_image_from_buffer(image_copiers: Res<ImageCopiers>, render_device: Re
 			data.to_vec() // Copy to owned Vec and drop data
 		}; // data dropped here
 
-		// Send to Main World through channel
-		// Ignore error if receiver already closed (app exit)
-		let _ = sender.send(image_bytes);
+		// Send to Main World through channel.
+		// try_send: if channel is full (main world throttled), drop the frame
+		// rather than letting old frames accumulate and exhaust memory.
+		let _ = sender.try_send(image_bytes);
 
 		// Must unmap before next use
 		image_copier.buffer.unmap();

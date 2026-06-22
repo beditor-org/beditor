@@ -86,28 +86,36 @@ fn entry() -> Element {
 		if let Some(mux) = multiplexer.read().as_ref() {
 			info!("Multiplexer is available, registering things");
 			let viewport_stream_protocol = mux.register_protocol::<FrameStreamProtocol>();
+			let camera_input_protocol = mux.register_protocol::<CameraInputProtocol>();
+			*controls_stream.write() = Some(Arc::new(Mutex::new(camera_input_protocol)));
 			spawn(async move {
 				loop {
-					match viewport_stream_protocol.connection.recv_async().await {
-						Ok(frame) => {
-							let now = Instant::now();
-							let mut state = viewport_state.write();
-							state.frame = Some(frame);
-							state.frame_count += 1;
-							state.frame_timestamps.push_back(now);
-							let cutoff = now - std::time::Duration::from_secs(1);
-							while state.frame_timestamps.front().map_or(false, |t| *t < cutoff) {
-								state.frame_timestamps.pop_front();
-							}
-							state.fps = state.frame_timestamps.len() as f32;
-						}
+					// Wait for at least one frame
+					let first = match viewport_stream_protocol.connection.recv_async().await {
+						Ok(frame) => frame,
 						Err(_) => break,
+					};
+					// Drain any frames that arrived while Dioxus was busy rendering
+					// (e.g. editor was backgrounded). Only the latest matters visually.
+					let latest = std::iter::once(first)
+						.chain(std::iter::from_fn(|| {
+							viewport_stream_protocol.connection.try_recv().ok().flatten()
+						}))
+						.last()
+						.unwrap();
+
+					let now = Instant::now();
+					let mut state = viewport_state.write();
+					state.frame = Some(latest);
+					state.frame_count += 1;
+					state.frame_timestamps.push_back(now);
+					let cutoff = now - std::time::Duration::from_secs(1);
+					while state.frame_timestamps.front().map_or(false, |t| *t < cutoff) {
+						state.frame_timestamps.pop_front();
 					}
+					state.fps = state.frame_timestamps.len() as f32;
 				}
 			});
-
-			let camera_protocol = mux.register_protocol::<CameraInputProtocol>();
-			controls_stream.set(Some(Arc::new(Mutex::new(camera_protocol))));
 			info!("Registered CameraInput channel");
 		} else {
 			info!("Multiplexer is not available, cannot register things yet");

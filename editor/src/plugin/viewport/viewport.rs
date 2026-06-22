@@ -19,6 +19,10 @@ pub fn Viewport() -> Element {
 		info!("Viewport component mounted, viewport opened");
 	});
 
+	// Guard: skip spawning a new draw task if the previous one is still running.
+	// Without this, backgrounded evals queue up and cause a stutter on refocus.
+	let mut is_rendering = use_signal(|| false);
+
 	use_effect(move || {
 		let data_opt = viewport_state.read().frame.clone();
 		let data = match data_opt {
@@ -26,11 +30,19 @@ pub fn Viewport() -> Element {
 			None => return,
 		};
 
+		if is_rendering() {
+			return;
+		}
+		is_rendering.set(true);
+
 		let canvas_id = canvas_id.to_string();
 		spawn(async move {
 			let eval_js = format!(
 				r#"
 				(function() {{
+					// Skip drawing while the tab/window is not visible
+					if (document.hidden) {{ return; }}
+
 					const canvas = document.getElementById('{}');
 					if (!canvas) return;
 
@@ -57,6 +69,7 @@ pub fn Viewport() -> Element {
 				canvas_id, data
 			);
 			eval(&eval_js).await.ok();
+			is_rendering.set(false);
 		});
 	});
 
