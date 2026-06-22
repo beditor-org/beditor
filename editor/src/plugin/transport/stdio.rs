@@ -35,12 +35,14 @@ pub fn stdio_transport_plugin() -> Plugin {
 
 fn setup_context() -> Element {
 	use_context_provider(|| Signal::new(None::<Multiplexer<ChildStdout, ChildStdin>>));
+	use_context_provider(|| Signal::new(None::<(u64, u64)>));
 	rsx!()
 }
 
 fn entry() -> Element {
 	let mut multiplexer = use_context::<Signal<Option<Multiplexer<ChildStdout, ChildStdin>>>>();
 	let mut registry = use_context::<Signal<PluginRegistry>>();
+	let mut stdio_stats = use_context::<Signal<Option<(u64, u64)>>>();
 	let game_process = use_context::<Signal<Option<GameProcess>>>();
 	let events = use_context::<Events>();
 
@@ -72,6 +74,19 @@ fn entry() -> Element {
 		}
 	});
 
+	use_future(move || async move {
+		loop {
+			tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+			let new_stats = multiplexer.read().as_ref().map(|mux| {
+				(
+					mux.bytes_sent.load(Ordering::Relaxed),
+					mux.bytes_received.load(Ordering::Relaxed),
+				)
+			});
+			stdio_stats.set(new_stats);
+		}
+	});
+
 	use_hook(|| {
 		registry.write().plugins.get_mut(PLUGIN_NAME).unwrap().is_initialized = true;
 		info!("{PLUGIN_NAME} plugin initialized!");
@@ -81,22 +96,15 @@ fn entry() -> Element {
 }
 
 fn counter() -> Element {
-	let multiplexer = use_context::<Signal<Option<Multiplexer<ChildStdout, ChildStdin>>>>();
-	let stats = multiplexer.read().as_ref().map(|mux| {
-		(
-			mux.bytes_sent.load(Ordering::Relaxed),
-			mux.bytes_received.load(Ordering::Relaxed),
-		)
-	});
+	let stats = use_context::<Signal<Option<(u64, u64)>>>();
 
 	rsx! {
 		div {
-			if let Some((sent, received)) = stats {
+			if let Some((sent, received)) = stats() {
 				"stdio: ↑ {ByteSize(sent)} | ↓ {ByteSize(received)}"
 			} else {
 				"stdio: Not connected"
 			}
 		}
-
 	}
 }
