@@ -10,7 +10,7 @@ use bevy::{
 	winit::WinitPlugin,
 };
 use bridge::{
-	codec::{base64::Base64Codec, json::JsonCodec},
+	codec::{json::JsonCodec, raw::RawCodec},
 	connection::Connection,
 	multiplexer::Multiplexer,
 	protocol::{
@@ -130,7 +130,7 @@ pub struct ControlsStream {
 
 #[derive(Resource)]
 pub struct ViewportStream {
-	pub viewport: Connection<Base64Codec>,
+	pub viewport: Connection<RawCodec>,
 }
 
 pub trait EditorApp {

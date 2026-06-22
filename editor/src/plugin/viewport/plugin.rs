@@ -106,7 +106,9 @@ fn entry() -> Element {
 
 					let now = Instant::now();
 					let mut state = viewport_state.write();
-					state.frame = Some(latest);
+					// base64-encode raw JPEG bytes for JS <img> data URL
+					use base64::{engine::general_purpose, Engine as _};
+					state.frame = Some(general_purpose::STANDARD.encode(&latest));
 					state.frame_count += 1;
 					state.frame_timestamps.push_back(now);
 					let cutoff = now - std::time::Duration::from_secs(1);

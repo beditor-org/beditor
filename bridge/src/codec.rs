@@ -1,5 +1,6 @@
 pub mod base64;
 pub mod json;
+pub mod raw;
 
 pub trait Codec {
 	type Message;

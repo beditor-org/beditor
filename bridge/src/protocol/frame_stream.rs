@@ -1,13 +1,13 @@
-use crate::{codec::base64::Base64Codec, connection::Connection, protocol::Protocol, TypeName};
+use crate::{codec::raw::RawCodec, connection::Connection, protocol::Protocol, TypeName};
 
 pub struct FrameStreamProtocol {
-	pub connection: Connection<Base64Codec>,
+	pub connection: Connection<RawCodec>,
 }
 
 impl TypeName for FrameStreamProtocol {}
 
 impl Protocol for FrameStreamProtocol {
-	type Codec = Base64Codec;
+	type Codec = RawCodec;
 	fn from_connection(connection: Connection<Self::Codec>) -> Self {
 		Self { connection }
 	}
