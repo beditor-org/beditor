@@ -124,6 +124,21 @@ fn entry() -> Element {
 		}
 	});
 
+	// Periodically prune stale timestamps and recalculate fps,
+	// so the counter drops to 0 when no frames arrive.
+	use_future(move || async move {
+		loop {
+			tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+			let mut state = viewport_state.write();
+			let now = Instant::now();
+			let cutoff = now - std::time::Duration::from_secs(1);
+			while state.frame_timestamps.front().map_or(false, |t| *t < cutoff) {
+				state.frame_timestamps.pop_front();
+			}
+			state.fps = state.frame_timestamps.len() as f32;
+		}
+	});
+
 	use_hook(|| {
 		registry.write().plugins.get_mut(PLUGIN_NAME).unwrap().is_initialized = true;
 		info!("{PLUGIN_NAME} plugin initialized!");
