@@ -42,3 +42,6 @@ strum_macros = "0.27"
 
 # Encoding
 base64 = "0.22"
+
+# Shared memory
+memmap2 = "0.9"

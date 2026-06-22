@@ -10,6 +10,7 @@ bevy = { version = "0.19", features = ["bevy_dev_tools", "bevy_remote"] }
 bridge = { path = "../bridge" }
 clap = { version = "4.5", features = ["derive"] }
 flume.workspace = true
+memmap2.workspace = true
 mozjpeg = { version = "0.10", default-features = false, features = [
 	"with_simd",
 ] }

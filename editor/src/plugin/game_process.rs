@@ -3,7 +3,7 @@ use dioxus::{core::use_drop, prelude::*};
 use rfd::AsyncFileDialog;
 use std::{
 	cell::Cell,
-	path::Path,
+	path::{Path, PathBuf},
 	process::Stdio,
 	sync::{Arc, Mutex},
 };
@@ -15,6 +15,12 @@ use crate::{
 	event::{Events, OpenGameEvent, SwitchWorkspaceEvent},
 	plugin::{core::plugin::CORE_SCENE_EDITOR_WORKSPACE, Plugin, PluginRegistry},
 };
+
+/// Returns the path used for the viewport shared-memory frame buffer.
+/// Based on editor PID so it's unique per editor instance.
+pub fn viewport_shm_path() -> PathBuf {
+	std::env::temp_dir().join(format!("beditor_vp_{}.shm", std::process::id()))
+}
 
 pub struct RenderViewportEvent {}
 pub struct GameProcessAttachedEvent {}
@@ -154,8 +160,23 @@ impl GameProcessManager {
 		let asset_path = std::env::current_dir()
 			.map(|cwd| cwd.join("client/examples").to_string_lossy().to_string())
 			.unwrap_or_else(|_| "assets".to_string());
+		let shm_path = viewport_shm_path();
+		// Pre-allocate the shared memory file (4 MB — enough for any JPEG frame).
+		// The game maps this file and writes frames directly; the editor reads.
+		{
+			let file = std::fs::OpenOptions::new()
+				.create(true)
+				.write(true)
+				.open(&shm_path)
+				.map_err(|e| anyhow!("Failed to create viewport shm: {e}"))?;
+			file.set_len(4 * 1024 * 1024)
+				.map_err(|e| anyhow!("Failed to size viewport shm: {e}"))?;
+		}
+
 		let mut child = Command::new(&project_path)
 			.arg("--editor-mode")
+			.arg("--viewport-shm")
+			.arg(&shm_path)
 			.env("BEDITOR_ASSET_PATH", &asset_path)
 			.stdin(Stdio::piped())
 			.stdout(Stdio::piped())

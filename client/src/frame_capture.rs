@@ -16,7 +16,7 @@ use flume::{bounded, Receiver, Sender};
 use std::collections::hash_map::DefaultHasher;
 use std::sync::{atomic::AtomicBool, Arc};
 
-use crate::app::ViewportStream;
+use crate::app::ViewportSender;
 
 // ============================================================================
 // RESOURCES - for communication between Main World and Render World
@@ -414,18 +414,14 @@ fn save_captured_frames(receiver: Res<MainWorldReceiver>, raw_sender: Res<RawFra
 	}
 }
 
-/// Drain encoded frames from the background encoder and send to the editor.
+/// Drain encoded frames from the background encoder and forward to the viewport socket task.
 /// Chained after save_captured_frames in the Last schedule.
-fn send_encoded_frames(
-	enc_receiver: Res<EncodedFrameReceiver>,
-	viewport_stream: Res<ViewportStream>,
-	mut wire_stats: Local<(u32, Option<std::time::Instant>)>,
-) {
+fn send_encoded_frames(enc_receiver: Res<EncodedFrameReceiver>, viewport_sender: Res<ViewportSender>) {
 	let mut latest: Option<Vec<u8>> = None;
 	while let Ok(encoded) = enc_receiver.0.try_recv() {
 		latest = Some(encoded);
 	}
 	if let Some(encoded) = latest {
-		let _ = viewport_stream.viewport.send(&encoded);
+		let _ = viewport_sender.0.try_send(encoded);
 	}
 }
