@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use editor::{
 	components::App,
 	plugin::{
-		asset_browser::asset_browser_plugin, bep::plugin::bep_plugin, core::plugin::core_plugin, dumy::plugin::dumy_plugin,
+		asset_browser::asset_browser_plugin, bep::plugin::bep_plugin, core::plugin::core_plugin,
 		game_process::game_process_plugin, scene_editor::plugin::scene_editor_plugin, transport::stdio::stdio_transport_plugin,
 		viewport::plugin::viewport_plugin, PluginBuilder,
 	},
@@ -21,7 +21,6 @@ fn main() {
 	let window_cfg = dioxus::desktop::Config::new().with_window(window);
 
 	let plugins: Vec<PluginBuilder> = vec![
-		dumy_plugin,
 		core_plugin,
 		stdio_transport_plugin,
 		game_process_plugin,
