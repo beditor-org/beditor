@@ -29,10 +29,15 @@ pub struct ViewportState {
 	pub is_opened: bool,
 	pub frame_count: usize,
 	pub fps: f32,
-	/// Timestamps of frames received in the last second (sliding window).
 	pub frame_timestamps: VecDeque<Instant>,
-	pub frame: Option<String>,
+	/// Incremented each time a new frame lands in shm.
+	/// JS uses it as a cache-busting query param for beditor://frame?v=N
+	pub frame_version: u64,
 }
+
+/// Shared mmap exposed as Dioxus context so viewport.rs can access it.
+#[derive(Clone)]
+pub struct ViewportShm(pub Arc<Mmap>);
 
 pub fn viewport_plugin() -> Plugin {
 	Plugin {
@@ -68,10 +73,11 @@ fn setup_context() -> Element {
 			frame_count: 0,
 			fps: 0.0,
 			frame_timestamps: VecDeque::new(),
-			frame: None,
+			frame_version: 0,
 		})
 	});
 	use_context_provider(|| Signal::new(None::<Arc<Mutex<CameraInputProtocol>>>));
+	use_context_provider(|| Signal::new(None::<ViewportShm>));
 	rsx!()
 }
 
@@ -80,11 +86,10 @@ fn entry() -> Element {
 	let multiplexer = use_context::<Signal<Option<Multiplexer<ChildStdout, ChildStdin>>>>();
 	let mut viewport_state = use_context::<Signal<ViewportState>>();
 	let mut controls_stream = use_context::<Signal<Option<Arc<Mutex<CameraInputProtocol>>>>>();
+	let mut viewport_shm = use_context::<Signal<Option<ViewportShm>>>();
+	// Shared handle passed from main.rs — read by the custom protocol handler
+	let shm_handle = use_context::<Arc<std::sync::Mutex<Option<memmap2::Mmap>>>>();
 
-	// Register protocols as soon as multiplexer is available.
-	// Camera input uses multiplexer directly.
-	// Viewport frame notifications also come through multiplexer (tiny signal),
-	// while the actual JPEG data is read from the shared-memory file.
 	use_effect(move || {
 		if let Some(mux) = multiplexer.read().as_ref() {
 			info!("Multiplexer is available, registering viewport + camera protocols");
@@ -94,52 +99,46 @@ fn entry() -> Element {
 
 			let frame_stream_protocol = mux.register_protocol::<FrameStreamProtocol>();
 			let shm_path = viewport_shm_path();
+			let shm_handle = shm_handle.clone();
 
 			spawn(async move {
-				// Map the shared-memory file created by game_process::spawn().
-				// The game writes [len: u32 BE][jpeg...] there and then sends an
-				// empty signal through FrameStreamProtocol to notify us.
-				let mmap: Mmap = {
-					let file = match std::fs::File::open(&shm_path) {
-						Ok(f) => f,
-						Err(e) => {
-							tracing::error!("Cannot open viewport shm {shm_path:?}: {e}");
-							return;
-						}
-					};
-					match unsafe { Mmap::map(&file) } {
-						Ok(m) => m,
-						Err(e) => {
-							tracing::error!("Cannot mmap viewport shm: {e}");
-							return;
-						}
+				let file = match std::fs::File::open(&shm_path) {
+					Ok(f) => f,
+					Err(e) => {
+						tracing::error!("Cannot open viewport shm {shm_path:?}: {e}");
+						return;
+					}
+				};
+				let mmap: Arc<Mmap> = match unsafe { Mmap::map(&file) } {
+					Ok(m) => Arc::new(m),
+					Err(e) => {
+						tracing::error!("Cannot mmap viewport shm: {e}");
+						return;
 					}
 				};
 				info!("Viewport shm mapped ({} bytes)", mmap.len());
 
+				// Publish to Dioxus context (for future use)
+				*viewport_shm.write() = Some(ViewportShm(mmap.clone()));
+
+				// Also store a second independent mmap in the Arc the protocol handler reads.
+				{
+					let file2 = std::fs::File::open(&shm_path).expect("shm open for protocol handler");
+					let raw = unsafe { memmap2::Mmap::map(&file2).expect("mmap for protocol handler") };
+					*shm_handle.lock().unwrap() = Some(raw);
+				}
+
 				loop {
-					// Block until game signals a new frame is ready
 					match frame_stream_protocol.connection.recv_async().await {
-						Ok(_signal) => {}
+						Ok(_) => {}
 						Err(_) => break,
 					}
-					// Drain any queued signals — only the latest matters
+					// Drain queued signals — only the latest matters
 					while frame_stream_protocol.connection.try_recv().ok().flatten().is_some() {}
 
-					// Read frame from shm: [len: u32 BE][jpeg data...]
-					if mmap.len() < 4 {
-						continue;
-					}
-					let len = u32::from_be_bytes(mmap[0..4].try_into().unwrap()) as usize;
-					if len == 0 || 4 + len > mmap.len() {
-						continue;
-					}
-					let data = &mmap[4..4 + len];
-
 					let now = Instant::now();
-					use base64::{engine::general_purpose, Engine as _};
 					let mut state = viewport_state.write();
-					state.frame = Some(general_purpose::STANDARD.encode(data));
+					state.frame_version += 1;
 					state.frame_count += 1;
 					state.frame_timestamps.push_back(now);
 					let cutoff = now - std::time::Duration::from_secs(1);
@@ -155,7 +154,6 @@ fn entry() -> Element {
 		}
 	});
 
-	// Periodically prune stale timestamps so FPS counter drops to 0 when game disconnects.
 	use_future(move || async move {
 		loop {
 			tokio::time::sleep(std::time::Duration::from_millis(500)).await;

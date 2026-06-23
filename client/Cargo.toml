@@ -11,9 +11,6 @@ bridge = { path = "../bridge" }
 clap = { version = "4.5", features = ["derive"] }
 flume.workspace = true
 memmap2.workspace = true
-mozjpeg = { version = "0.10", default-features = false, features = [
-	"with_simd",
-] }
 serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["io-std", "rt", "rt-multi-thread"] }
