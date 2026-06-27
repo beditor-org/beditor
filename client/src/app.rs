@@ -27,11 +27,13 @@ use crate::{frame_capture::FrameCapturePlugin, BepPlugin};
 #[derive(Component)]
 pub struct EditorCamera;
 
-/// Stores the camera rotation as Euler angles (in radians)
+/// Orbit camera state: camera sits at `pivot + rotation(yaw,pitch) * Z * distance`
 #[derive(Component)]
 pub struct CameraRotation {
-	pub pitch: f32, // rotation around X axis (up/down)
-	pub yaw: f32,   // rotation around Y axis (left/right)
+	pub pitch: f32,    // rotation around X axis (up/down)
+	pub yaw: f32,      // rotation around Y axis (left/right)
+	pub pivot: Vec3,   // the point the camera orbits around
+	pub distance: f32, // distance from pivot to camera
 }
 
 #[derive(Parser, Debug)]
@@ -75,10 +77,11 @@ pub fn setup_editor_camera(
 		return;
 	};
 
-	// Initialize CameraRotation from the camera's actual transform so the first
-	// mouse move doesn't snap to identity rotation (yaw=0, pitch=0).
+	// Derive initial orbit state from the camera's existing transform.
+	// pivot = world origin; distance = length of camera's current translation.
 	let (yaw, pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
-	commands.entity(entity).insert(CameraRotation { pitch, yaw });
+	let distance = transform.translation.length().max(1.0);
+	commands.entity(entity).insert(CameraRotation { pitch, yaw, pivot: Vec3::ZERO, distance });
 
 	let size = bevy::render::render_resource::Extent3d {
 		width: 1280,
@@ -114,27 +117,41 @@ pub fn controll_editor_camera(
 		return;
 	};
 
-	let sensitivity = 0.01;
-	let dolly_speed = 0.5;
-	let pan_speed = 0.01;
+	// Recompute camera transform from current orbit state.
+	// Camera sits at: pivot + rotation(yaw,pitch) * Vec3::Z * distance
+	let apply = |transform: &mut Transform, r: &CameraRotation| {
+		let rot = Quat::from_euler(EulerRot::YXZ, r.yaw, r.pitch, 0.0);
+		transform.translation = r.pivot + rot * Vec3::new(0.0, 0.0, r.distance);
+		transform.rotation = rot;
+	};
+
+	let orbit_sensitivity = 0.005;
+	let dolly_speed = 0.1;
+	// Pan speed scales with distance so it feels consistent at any zoom level
+	let pan_speed = 0.001;
+
 	while let Ok(Some(event)) = controls_stream.mouse.try_recv() {
 		if event.scroll != 0.0 {
-			// Dolly: move along the camera's forward vector
-			let forward = transform.forward();
-			transform.translation -= forward * event.scroll * dolly_speed;
+			// Dolly: change distance to pivot, clamp to avoid flipping through it
+			rotation.distance = (rotation.distance + event.scroll * dolly_speed * rotation.distance)
+				.max(0.1);
+			apply(&mut transform, &rotation);
 		}
 		if event.pan_x != 0.0 || event.pan_y != 0.0 {
-			// Pan: move along right and up axes, no rotation change
+			// Pan: move pivot along camera right/up — camera follows
 			let right = transform.right();
 			let up = transform.up();
-			transform.translation -= right * event.pan_x * pan_speed;
-			transform.translation += up * event.pan_y * pan_speed;
+			let speed = pan_speed * rotation.distance;
+			rotation.pivot -= right * event.pan_x * speed;
+			rotation.pivot += up * event.pan_y * speed;
+			apply(&mut transform, &rotation);
 		}
 		if event.x != 0.0 || event.y != 0.0 {
-			rotation.yaw -= event.x * sensitivity;
-			rotation.pitch = (rotation.pitch - event.y * sensitivity)
+			// Orbit: rotate around pivot
+			rotation.yaw -= event.x * orbit_sensitivity;
+			rotation.pitch = (rotation.pitch - event.y * orbit_sensitivity)
 				.clamp(-std::f32::consts::FRAC_PI_2 + 0.01, std::f32::consts::FRAC_PI_2 - 0.01);
-			transform.rotation = Quat::from_euler(EulerRot::YXZ, rotation.yaw, rotation.pitch, 0.0);
+			apply(&mut transform, &rotation);
 		}
 	}
 }
