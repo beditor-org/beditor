@@ -1,6 +1,4 @@
-use std::time::Duration;
-
-use bevy::{ecs::resource::IsResource, prelude::*, time::common_conditions::on_timer};
+use bevy::{ecs::resource::IsResource, prelude::*};
 use bridge::protocol::bep::{BepProtocol, ComponentData, EntityInfo, EntityKind, FieldData, FieldValue};
 
 use crate::app::ResMultiplexer;
@@ -17,26 +15,18 @@ struct InspectorState {
 }
 
 pub struct BepPlugin;
+
 impl Plugin for BepPlugin {
 	fn build(&self, app: &mut App) {
 		app.init_resource::<InspectorState>()
 			.add_systems(PostStartup, send_game_ready_and_entities)
 			.add_systems(Update, poll_bep_messages)
-			.add_systems(
-				Update,
-				watch_selected_entity.run_if(on_timer(Duration::from_millis(150))),
-			);
+			.add_systems(Update, watch_selected_entity)
+			.add_systems(PostUpdate, watch_entity_list);
 	}
 }
 
-fn send_game_ready_and_entities(world: &mut World) {
-	let protocol = {
-		let multiplexer = world.resource::<ResMultiplexer>();
-		multiplexer.multiplexer.register_protocol::<BepProtocol>()
-	};
-
-	protocol.game_ready();
-
+fn collect_entity_list(world: &World) -> Vec<EntityInfo> {
 	let type_registry = world.resource::<AppTypeRegistry>().clone();
 	let registry = type_registry.read();
 
@@ -55,7 +45,6 @@ fn send_game_ready_and_entities(world: &mut World) {
 		.collect();
 
 	let components_info = world.components();
-
 	let is_resource_type_id = std::any::TypeId::of::<IsResource>();
 
 	// Filter entities:
@@ -114,10 +103,41 @@ fn send_game_ready_and_entities(world: &mut World) {
 		.collect();
 
 	drop(registry);
+	entity_list
+}
 
+fn send_game_ready_and_entities(world: &mut World) {
+	let protocol = {
+		let multiplexer = world.resource::<ResMultiplexer>();
+		multiplexer.multiplexer.register_protocol::<BepProtocol>()
+	};
+
+	protocol.game_ready();
+
+	let entity_list = collect_entity_list(world);
 	protocol.update_entities_list(entity_list);
 
 	world.insert_resource(BepResource { protocol });
+}
+
+fn watch_entity_list(world: &mut World, mut last: Local<(usize, u64)>) {
+	let mut count = 0usize;
+	let mut id_xor = 0u64;
+	for e in world.iter_entities() {
+		count += 1;
+		id_xor ^= e.id().to_bits();
+	}
+
+	if *last == (count, id_xor) {
+		return;
+	}
+	*last = (count, id_xor);
+
+	let Some(protocol) = world.get_resource::<BepResource>().map(|b| b.protocol.clone()) else {
+		return;
+	};
+	let entity_list = collect_entity_list(world);
+	protocol.update_entities_list(entity_list);
 }
 
 fn poll_bep_messages(world: &mut World) {
