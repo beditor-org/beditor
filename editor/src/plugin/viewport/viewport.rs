@@ -99,11 +99,11 @@ pub fn Viewport() -> Element {
 				class: "w-full h-full",
 				style: "image-rendering: auto; display: block;",
 				onmousedown: move |evt| {
-					if evt.trigger_button() == Some(dioxus::html::input_data::MouseButton::Primary) {
+					if evt.trigger_button() == Some(dioxus::html::input_data::MouseButton::Auxiliary) {
 						is_dragging.set(true);
 						let coords = evt.page_coordinates();
 						last_mouse_pos.set((coords.x, coords.y));
-						trace!("Right mouse button pressed - camera control started");
+						trace!("Middle mouse button pressed - camera orbit started");
 					}
 				},
 				onmousemove: move |evt| {
@@ -124,9 +124,9 @@ pub fn Viewport() -> Element {
 					}
 				},
 				onmouseup: move |evt| {
-					if evt.trigger_button() == Some(dioxus::html::input_data::MouseButton::Primary) {
+					if evt.trigger_button() == Some(dioxus::html::input_data::MouseButton::Auxiliary) {
 						is_dragging.set(false);
-						trace!("Right mouse button released - camera control stopped");
+						trace!("Middle mouse button released - camera orbit stopped");
 					}
 				},
 				onwheel: move |evt| {
