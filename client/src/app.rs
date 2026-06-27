@@ -67,16 +67,18 @@ pub fn setup_infinite_grid(mut commands: Commands) {
 
 pub fn setup_editor_camera(
 	mut commands: Commands,
-	mut cameras: Query<(Entity, &mut Camera), With<EditorCamera>>,
+	mut cameras: Query<(Entity, &mut Camera, &Transform), With<EditorCamera>>,
 	mut images: ResMut<Assets<Image>>,
 ) {
-	let Ok((entity, mut camera)) = cameras.single_mut() else {
+	let Ok((entity, _camera, transform)) = cameras.single_mut() else {
 		eprintln!("⚠️  Warning: No EditorCamera found or multiple cameras marked with EditorCamera");
 		return;
 	};
 
-	// Initialize camera rotation component
-	commands.entity(entity).insert(CameraRotation { pitch: 0.0, yaw: 0.0 });
+	// Initialize CameraRotation from the camera's actual transform so the first
+	// mouse move doesn't snap to identity rotation (yaw=0, pitch=0).
+	let (yaw, pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
+	commands.entity(entity).insert(CameraRotation { pitch, yaw });
 
 	let size = bevy::render::render_resource::Extent3d {
 		width: 1280,
