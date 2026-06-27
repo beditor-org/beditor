@@ -117,6 +117,7 @@ pub fn Viewport() -> Element {
 							let _ = camera_input.lock().unwrap().connection.send(&MouseEvent {
 								x: dx as f32,
 								y: dy as f32,
+								scroll: 0.0,
 							});
 							trace!("Camera drag: dx={:.1}, dy={:.1}", dx, dy);
 						}
@@ -126,6 +127,21 @@ pub fn Viewport() -> Element {
 					if evt.trigger_button() == Some(dioxus::html::input_data::MouseButton::Primary) {
 						is_dragging.set(false);
 						trace!("Right mouse button released - camera control stopped");
+					}
+				},
+				onwheel: move |evt| {
+					evt.prevent_default();
+					if let Some(camera_input) = camera_input.read().as_ref() {
+						let scroll_delta = match evt.delta() {
+							dioxus::html::geometry::WheelDelta::Lines(lines) => lines.y as f32,
+							dioxus::html::geometry::WheelDelta::Pages(pages) => pages.y as f32 * 10.0,
+							dioxus::html::geometry::WheelDelta::Pixels(pixels) => pixels.y as f32 * 0.05,
+						};
+						let _ = camera_input.lock().unwrap().connection.send(&MouseEvent {
+							x: 0.0,
+							y: 0.0,
+							scroll: scroll_delta,
+						});
 					}
 				},
 				oncontextmenu: move |evt| {

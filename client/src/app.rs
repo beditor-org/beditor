@@ -115,11 +115,19 @@ pub fn controll_editor_camera(
 	};
 
 	let sensitivity = 0.01;
+	let dolly_speed = 0.5;
 	while let Ok(Some(event)) = controls_stream.mouse.try_recv() {
-		rotation.yaw -= event.x * sensitivity;
-		rotation.pitch = (rotation.pitch - event.y * sensitivity)
-			.clamp(-std::f32::consts::FRAC_PI_2 + 0.01, std::f32::consts::FRAC_PI_2 - 0.01);
-		transform.rotation = Quat::from_euler(EulerRot::YXZ, rotation.yaw, rotation.pitch, 0.0);
+		if event.scroll != 0.0 {
+			// Dolly: move along the camera's forward vector
+			let forward = transform.forward();
+			transform.translation -= forward * event.scroll * dolly_speed;
+		}
+		if event.x != 0.0 || event.y != 0.0 {
+			rotation.yaw -= event.x * sensitivity;
+			rotation.pitch = (rotation.pitch - event.y * sensitivity)
+				.clamp(-std::f32::consts::FRAC_PI_2 + 0.01, std::f32::consts::FRAC_PI_2 - 0.01);
+			transform.rotation = Quat::from_euler(EulerRot::YXZ, rotation.yaw, rotation.pitch, 0.0);
+		}
 	}
 }
 

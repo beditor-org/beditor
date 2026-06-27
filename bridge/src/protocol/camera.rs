@@ -6,6 +6,10 @@ use crate::{codec::json::JsonCodec, connection::Connection, protocol::Protocol, 
 pub struct MouseEvent {
 	pub x: f32,
 	pub y: f32,
+	/// Scroll wheel delta — used for camera dolly (move along forward vector).
+	/// Positive = scroll down (zoom out), negative = scroll up (zoom in).
+	#[serde(default)]
+	pub scroll: f32,
 }
 
 pub struct CameraInputProtocol {
