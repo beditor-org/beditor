@@ -111,15 +111,17 @@ pub fn Viewport() -> Element {
 						if let Some(camera_input) = camera_input.read().as_ref() {
 							let coords = evt.page_coordinates();
 							let (last_x, last_y) = last_mouse_pos();
-							let dx = coords.x - last_x;
-							let dy = coords.y - last_y;
+							let dx = (coords.x - last_x) as f32;
+							let dy = (coords.y - last_y) as f32;
 							last_mouse_pos.set((coords.x, coords.y));
-							let _ = camera_input.lock().unwrap().connection.send(&MouseEvent {
-								x: dx as f32,
-								y: dy as f32,
-								scroll: 0.0,
-							});
-							trace!("Camera drag: dx={:.1}, dy={:.1}", dx, dy);
+							let msg = if evt.modifiers().shift() {
+								trace!("Camera pan: dx={:.1}, dy={:.1}", dx, dy);
+								MouseEvent { x: 0.0, y: 0.0, scroll: 0.0, pan_x: dx, pan_y: dy }
+							} else {
+								trace!("Camera orbit: dx={:.1}, dy={:.1}", dx, dy);
+								MouseEvent { x: dx, y: dy, scroll: 0.0, pan_x: 0.0, pan_y: 0.0 }
+							};
+							let _ = camera_input.lock().unwrap().connection.send(&msg);
 						}
 					}
 				},
@@ -141,6 +143,8 @@ pub fn Viewport() -> Element {
 							x: 0.0,
 							y: 0.0,
 							scroll: scroll_delta,
+							pan_x: 0.0,
+							pan_y: 0.0,
 						});
 					}
 				},

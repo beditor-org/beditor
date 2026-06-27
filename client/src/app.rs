@@ -116,11 +116,19 @@ pub fn controll_editor_camera(
 
 	let sensitivity = 0.01;
 	let dolly_speed = 0.5;
+	let pan_speed = 0.01;
 	while let Ok(Some(event)) = controls_stream.mouse.try_recv() {
 		if event.scroll != 0.0 {
 			// Dolly: move along the camera's forward vector
 			let forward = transform.forward();
 			transform.translation -= forward * event.scroll * dolly_speed;
+		}
+		if event.pan_x != 0.0 || event.pan_y != 0.0 {
+			// Pan: move along right and up axes, no rotation change
+			let right = transform.right();
+			let up = transform.up();
+			transform.translation -= right * event.pan_x * pan_speed;
+			transform.translation += up * event.pan_y * pan_speed;
 		}
 		if event.x != 0.0 || event.y != 0.0 {
 			rotation.yaw -= event.x * sensitivity;

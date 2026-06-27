@@ -10,6 +10,12 @@ pub struct MouseEvent {
 	/// Positive = scroll down (zoom out), negative = scroll up (zoom in).
 	#[serde(default)]
 	pub scroll: f32,
+	/// Pan delta — move camera along its right/up axes without changing rotation.
+	/// Sent when Shift + MMB drag.
+	#[serde(default)]
+	pub pan_x: f32,
+	#[serde(default)]
+	pub pan_y: f32,
 }
 
 pub struct CameraInputProtocol {
