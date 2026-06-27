@@ -81,7 +81,12 @@ pub fn setup_editor_camera(
 	// pivot = world origin; distance = length of camera's current translation.
 	let (yaw, pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
 	let distance = transform.translation.length().max(1.0);
-	commands.entity(entity).insert(CameraRotation { pitch, yaw, pivot: Vec3::ZERO, distance });
+	commands.entity(entity).insert(CameraRotation {
+		pitch,
+		yaw,
+		pivot: Vec3::ZERO,
+		distance,
+	});
 
 	let size = bevy::render::render_resource::Extent3d {
 		width: 1280,
@@ -133,8 +138,7 @@ pub fn controll_editor_camera(
 	while let Ok(Some(event)) = controls_stream.mouse.try_recv() {
 		if event.scroll != 0.0 {
 			// Dolly: change distance to pivot, clamp to avoid flipping through it
-			rotation.distance = (rotation.distance + event.scroll * dolly_speed * rotation.distance)
-				.max(0.1);
+			rotation.distance = (rotation.distance + event.scroll * dolly_speed * rotation.distance).max(0.1);
 			apply(&mut transform, &rotation);
 		}
 		if event.pan_x != 0.0 || event.pan_y != 0.0 {
