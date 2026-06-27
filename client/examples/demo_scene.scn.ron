@@ -18,11 +18,43 @@
           intensity: 1500.0,
           range: 20.0,
           radius: 0.0,
-          shadows_enabled: true,
+          shadow_maps_enabled: true,
           shadow_depth_bias: 0.02,
           shadow_normal_bias: 0.6,
         ),
       },
     ),
+		2: (
+			components: {
+				"bevy_ecs::name::Name": "Robot 1",
+				"client::components::robot::RobotMesh": (
+					head_color: Srgba((red: 0.5, green: 0.8, blue: 0.5, alpha: 1.0)),
+					body_color: Srgba((red: 0.9, green: 0.6, blue: 0.9, alpha: 1.0)),
+					eye_color:  Srgba((red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)),
+					arm_color:  Srgba((red: 0.4, green: 0.6, blue: 0.9, alpha: 1.0)),
+				),
+				"bevy_transform::components::transform::Transform": (
+					translation: (0.0, 0.0, 0.0),
+					rotation: (0.0, 0.0, 0.0, 1.0),
+					scale: (1.0, 1.0, 1.0),
+				),
+			},
+		),
+		3: (
+			components: {
+				"bevy_ecs::name::Name": "Robot 2",
+				"client::components::robot::RobotMesh": (
+					head_color: Srgba((red: 0.5, green: 0.8, blue: 0.5, alpha: 1.0)),
+					body_color: Srgba((red: 0.9, green: 0.0, blue: 0.0, alpha: 1.0)),
+					eye_color:  Srgba((red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0)),
+					arm_color:  Srgba((red: 0.4, green: 0.6, blue: 0.9, alpha: 1.0)),
+				),
+				"bevy_transform::components::transform::Transform": (
+					translation: (-2.0, 0.0, 0.0),
+					rotation: (0.0, 0.0, 0.0, 1.0),
+					scale: (1.0, 1.0, 1.0),
+				),
+			},
+		)
   },
 )
