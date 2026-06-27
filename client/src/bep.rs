@@ -14,11 +14,19 @@ struct InspectorState {
 	last_components: Vec<ComponentData>,
 }
 
+/// Set by poll_bep_messages when the editor requests a camera focus.
+/// Consumed by controll_editor_camera to move the orbit pivot.
+#[derive(Resource, Default)]
+pub struct CameraFocusRequest {
+	pub position: Option<Vec3>,
+}
+
 pub struct BepPlugin;
 
 impl Plugin for BepPlugin {
 	fn build(&self, app: &mut App) {
 		app.init_resource::<InspectorState>()
+			.init_resource::<CameraFocusRequest>()
 			.add_systems(PostStartup, send_game_ready_and_entities)
 			.add_systems(Update, poll_bep_messages)
 			.add_systems(Update, watch_selected_entity)
@@ -154,6 +162,19 @@ fn poll_bep_messages(world: &mut World) {
 					if state.selected != id {
 						state.selected = id;
 						state.last_components.clear();
+					}
+				}
+			}
+			BepMessage::FocusEntity { entity: id } => {
+				// Extract position first — drops the immutable world borrow before the mutable one
+				let pos = world
+					.iter_entities()
+					.find(|e| e.id().index_u32() == id)
+					.and_then(|e| e.get::<GlobalTransform>())
+					.map(|gt| gt.translation());
+				if let Some(pos) = pos {
+					if let Some(mut req) = world.get_resource_mut::<CameraFocusRequest>() {
+						req.position = Some(pos);
 					}
 				}
 			}

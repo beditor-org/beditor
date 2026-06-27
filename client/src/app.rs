@@ -21,7 +21,7 @@ use bridge::{
 use clap::Parser;
 use tokio::io::{stdin, stdout, Stdin, Stdout};
 
-use crate::{frame_capture::FrameCapturePlugin, BepPlugin};
+use crate::{bep::CameraFocusRequest, frame_capture::FrameCapturePlugin, BepPlugin};
 
 /// Marker component from camera to render game to editor viewport
 #[derive(Component)]
@@ -115,6 +115,7 @@ pub fn setup_editor_camera(
 
 pub fn controll_editor_camera(
 	controls_stream: Res<ControlsStream>,
+	mut focus_request: ResMut<CameraFocusRequest>,
 	mut cameras: Query<(Entity, &mut Transform, &mut CameraRotation), With<EditorCamera>>,
 ) {
 	let Ok((_entity, mut transform, mut rotation)) = cameras.single_mut() else {
@@ -129,6 +130,12 @@ pub fn controll_editor_camera(
 		transform.translation = r.pivot + rot * Vec3::new(0.0, 0.0, r.distance);
 		transform.rotation = rot;
 	};
+
+	// Focus request: move pivot to entity's world position, keep current distance
+	if let Some(pos) = focus_request.position.take() {
+		rotation.pivot = pos;
+		apply(&mut transform, &rotation);
+	}
 
 	let orbit_sensitivity = 0.005;
 	let dolly_speed = 0.1;

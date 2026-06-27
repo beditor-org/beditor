@@ -1,4 +1,4 @@
-use bridge::protocol::bep::{EntityInfo, EntityKind};
+use bridge::protocol::bep::{BepProtocol, EntityInfo, EntityKind};
 use dioxus::prelude::*;
 use ui::{TreeItem, TreeView};
 
@@ -87,6 +87,11 @@ pub fn EntityBrowser() -> Element {
 								selected_entity.set(None);
 							} else {
 								selected_entity.set(Some(id));
+							}
+						},
+						on_focus: move |id| {
+							if let Some(protocol) = try_use_context::<BepProtocol>() {
+								protocol.focus_entity(id);
 							}
 						},
 					}
