@@ -10,7 +10,7 @@ use bevy::{
 	winit::WinitPlugin,
 };
 use bridge::{
-	codec::{json::JsonCodec, raw::RawCodec},
+	codec::json::JsonCodec,
 	connection::Connection,
 	multiplexer::Multiplexer,
 	protocol::{
@@ -40,6 +40,9 @@ struct Args {
 	/// Run in editor mode
 	#[arg(long)]
 	editor_mode: bool,
+	/// Shared memory file path for viewport frames (created by editor, passed on launch)
+	#[arg(long)]
+	viewport_shm: Option<String>,
 }
 
 pub trait IntoEditorPluginGroup {
@@ -128,10 +131,11 @@ pub struct ControlsStream {
 	mouse: Connection<JsonCodec<MouseEvent>>,
 }
 
+/// Sender end of the viewport frame channel.
+/// `send_encoded_frames` puts JPEG bytes here; a background thread writes
+/// them to the shared-memory file and signals the editor via FrameStreamProtocol.
 #[derive(Resource)]
-pub struct ViewportStream {
-	pub viewport: Connection<RawCodec>,
-}
+pub struct ViewportSender(pub flume::Sender<Vec<u8>>);
 
 pub trait EditorApp {
 	fn with_default_plugins(&mut self, default_plugins: impl IntoEditorPluginGroup) -> &mut Self;
@@ -144,22 +148,50 @@ pub trait EditorApp {
 impl EditorApp for App {
 	fn with_editor_plugins(&mut self) -> &mut Self {
 		if self.is_editor_mode() {
+			let args = Args::parse();
 			let rt = tokio::runtime::Runtime::new().expect("Failed to create Tokio runtime");
 			let _guard = rt.enter();
 			let mut multiplexer = Multiplexer::new(stdin(), stdout());
 			multiplexer.start();
 
-			let viewport = multiplexer.register_protocol::<FrameStreamProtocol>();
+			let frame_stream = multiplexer.register_protocol::<FrameStreamProtocol>();
 			let controls = multiplexer.register_protocol::<CameraInputProtocol>();
+
+			// JPEG frames go to a background thread that writes them to shared memory
+			// and sends a tiny notification through FrameStreamProtocol (stdio/multiplexer).
+			// The editor maps the same file and reads the frame on notification.
+			let (frame_tx, frame_rx) = flume::bounded::<Vec<u8>>(4);
+			if let Some(shm_path) = args.viewport_shm {
+				let notify_conn = frame_stream.connection;
+				std::thread::spawn(move || {
+					use memmap2::MmapMut;
+					let file = std::fs::OpenOptions::new()
+						.read(true)
+						.write(true)
+						.open(&shm_path)
+						.expect("Failed to open viewport shm");
+					let mut mmap = unsafe { MmapMut::map_mut(&file).expect("Failed to mmap viewport shm") };
+
+					while let Ok(jpeg) = frame_rx.recv() {
+						let len = jpeg.len();
+						if 4 + len > mmap.len() {
+							continue; // frame too large for shm — should not happen with 4 MB
+						}
+						// Write [len: u32 BE][jpeg data] to shm
+						mmap[0..4].copy_from_slice(&(len as u32).to_be_bytes());
+						mmap[4..4 + len].copy_from_slice(&jpeg);
+						// Signal editor: frame is ready in shm
+						let _ = notify_conn.send(&vec![]);
+					}
+				});
+			}
 
 			// Keep runtime alive for the duration of the app
 			std::mem::forget(rt);
 
 			self.add_plugins(RemotePlugin::default())
 				.insert_resource(ResMultiplexer { multiplexer })
-				.insert_resource(ViewportStream {
-					viewport: viewport.connection,
-				})
+				.insert_resource(ViewportSender(frame_tx))
 				.insert_resource(ControlsStream {
 					mouse: controls.connection,
 				})

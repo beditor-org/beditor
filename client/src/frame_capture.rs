@@ -13,10 +13,9 @@ use bevy::{
 	},
 };
 use flume::{bounded, Receiver, Sender};
-use std::collections::hash_map::DefaultHasher;
 use std::sync::{atomic::AtomicBool, Arc};
 
-use crate::app::ViewportStream;
+use crate::app::ViewportSender;
 
 // ============================================================================
 // RESOURCES - for communication between Main World and Render World
@@ -56,15 +55,8 @@ impl Plugin for FrameCapturePlugin {
 		// Encoder thread → Main World channel (encoded JPEG bytes)
 		let (enc_tx, enc_rx) = flume::bounded::<Vec<u8>>(2);
 
-		// Spawn background JPEG encoder thread so main/render threads are never blocked by encoding
+		// Spawn background frame-copy thread so main/render threads are never blocked
 		std::thread::spawn(move || {
-			let mut last_hash: Option<u64> = None;
-			// // [POINT 3] encoder perf stats: (count, sum_us, max_us, window_start)
-			// let mut enc_count: u32 = 0;
-			// let mut enc_sum_us: u64 = 0;
-			// let mut enc_max_us: u64 = 0;
-			// let mut enc_dropped: u32 = 0;
-			// let mut enc_window = std::time::Instant::now();
 			loop {
 				// Block until a frame arrives
 				let first = match raw_rx.recv() {
@@ -82,24 +74,12 @@ impl Plugin for FrameCapturePlugin {
 					continue;
 				}
 
-				// Dedup: skip if frame unchanged (static scene)
-				let current_hash = {
-					use std::hash::{Hash, Hasher};
-					let mut hasher = DefaultHasher::new();
-					image_data.hash(&mut hasher);
-					hasher.finish()
-				};
-				if last_hash == Some(current_hash) {
-					continue;
-				}
-				last_hash = Some(current_hash);
-
 				// Strip GPU row-alignment padding
 				let width = 1280u32;
 				let height = 720u32;
 				let row_bytes = width as usize * 4;
 				let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
-				let actual_data: Vec<u8> = if row_bytes == aligned_row_bytes {
+				let mut actual_data: Vec<u8> = if row_bytes == aligned_row_bytes {
 					image_data
 				} else {
 					image_data
@@ -110,27 +90,12 @@ impl Plugin for FrameCapturePlugin {
 						.collect()
 				};
 
-				// Encode to JPEG via mozjpeg (SIMD, ~5x faster than pure-Rust image crate)
-				// let jpeg_start = std::time::Instant::now();
-				let jpeg_bytes: Vec<u8> = {
-					let mut buf = Vec::new();
-					let mut comp = mozjpeg::Compress::new(mozjpeg::ColorSpace::JCS_EXT_RGBA);
-					comp.set_size(width as usize, height as usize);
-					comp.set_quality(90.0);
-					comp.set_fastest_defaults();
-					let mut started = comp.start_compress(&mut buf).expect("mozjpeg start failed");
-					started.write_scanlines(&actual_data).expect("mozjpeg write failed");
-					started.finish().expect("mozjpeg finish failed");
-					buf
-				};
-				// let jpeg_us = jpeg_start.elapsed().as_micros() as u64;
+				// Force alpha=255 so the JS side doesn't need to loop over pixels
+				for a in actual_data.iter_mut().skip(3).step_by(4) {
+					*a = 255;
+				}
 
-				let _ = enc_tx.try_send(jpeg_bytes);
-
-				// // [POINT 3] Update encoder stats
-				// enc_count += 1;
-				// enc_sum_us += jpeg_us;
-				// if jpeg_us > enc_max_us { enc_max_us = jpeg_us; }
+				let _ = enc_tx.try_send(actual_data);
 				// let now = std::time::Instant::now();
 				// if now.duration_since(enc_window).as_secs_f32() >= 1.0 {
 				// 	if enc_count > 0 {
@@ -414,18 +379,14 @@ fn save_captured_frames(receiver: Res<MainWorldReceiver>, raw_sender: Res<RawFra
 	}
 }
 
-/// Drain encoded frames from the background encoder and send to the editor.
+/// Drain encoded frames from the background encoder and forward to the viewport socket task.
 /// Chained after save_captured_frames in the Last schedule.
-fn send_encoded_frames(
-	enc_receiver: Res<EncodedFrameReceiver>,
-	viewport_stream: Res<ViewportStream>,
-	mut wire_stats: Local<(u32, Option<std::time::Instant>)>,
-) {
+fn send_encoded_frames(enc_receiver: Res<EncodedFrameReceiver>, viewport_sender: Res<ViewportSender>) {
 	let mut latest: Option<Vec<u8>> = None;
 	while let Ok(encoded) = enc_receiver.0.try_recv() {
 		latest = Some(encoded);
 	}
 	if let Some(encoded) = latest {
-		let _ = viewport_stream.viewport.send(&encoded);
+		let _ = viewport_sender.0.try_send(encoded);
 	}
 }
