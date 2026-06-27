@@ -19,6 +19,16 @@ beditor uses a plugin-based approach for viewport rendering, allowing you to cho
 
 See [VIEWPORT_PLUGIN_QUICKSTART.md](./VIEWPORT_PLUGIN_QUICKSTART.md) for details.
 
+## Viewport Controls
+
+Controls are active when the mouse is over the viewport panel:
+
+| Action | Input |
+|--------|-------|
+| **Orbit** (rotate around pivot) | MMB drag |
+| **Pan** (move pivot) | Shift + MMB drag |
+| **Dolly** (zoom in/out) | Scroll wheel |
+
 ## Building
 
 ```bash
