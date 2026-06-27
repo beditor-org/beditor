@@ -31,13 +31,13 @@ pub struct MainWorldReceiver(Receiver<Vec<u8>>);
 #[derive(Resource, Deref)]
 pub struct RenderWorldSender(Sender<Vec<u8>>);
 
-/// Channel for forwarding raw GPU pixels to the background JPEG encoder thread
+/// Channel for forwarding raw GPU pixels to the background frame-processing thread
 #[derive(Resource)]
 struct RawFrameSender(flume::Sender<Vec<u8>>);
 
-/// Channel for receiving encoded JPEG frames from the background encoder thread
+/// Channel for receiving processed frames from the background thread
 #[derive(Resource, Deref)]
-struct EncodedFrameReceiver(flume::Receiver<Vec<u8>>);
+struct ProcessedFrameReceiver(flume::Receiver<Vec<u8>>);
 
 // ============================================================================
 // PLUGIN - entry point for the entire capture system
@@ -50,10 +50,10 @@ impl Plugin for FrameCapturePlugin {
 		// Render World → Main World channel (raw GPU pixels, bounded to drop under back-pressure)
 		let (mw_sender, mw_receiver) = bounded(2);
 
-		// Main World → encoder thread channel (raw pixels)
+		// Main World → frame-processing thread channel (raw pixels)
 		let (raw_tx, raw_rx) = flume::bounded::<Vec<u8>>(2);
-		// Encoder thread → Main World channel (encoded JPEG bytes)
-		let (enc_tx, enc_rx) = flume::bounded::<Vec<u8>>(2);
+		// Frame-processing thread → Main World channel (processed raw RGBA frames)
+		let (processed_tx, processed_rx) = flume::bounded::<Vec<u8>>(2);
 
 		// Spawn background frame-copy thread so main/render threads are never blocked
 		std::thread::spawn(move || {
@@ -95,7 +95,7 @@ impl Plugin for FrameCapturePlugin {
 					*a = 255;
 				}
 
-				let _ = enc_tx.try_send(actual_data);
+				let _ = processed_tx.try_send(actual_data);
 				// let now = std::time::Instant::now();
 				// if now.duration_since(enc_window).as_secs_f32() >= 1.0 {
 				// 	if enc_count > 0 {
@@ -112,7 +112,7 @@ impl Plugin for FrameCapturePlugin {
 		// Main World: receive raw frames, forward to encoder, and send encoded frames out
 		app.insert_resource(MainWorldReceiver(mw_receiver))
 			.insert_resource(RawFrameSender(raw_tx))
-			.insert_resource(EncodedFrameReceiver(enc_rx))
+			.insert_resource(ProcessedFrameReceiver(processed_rx))
 			.add_systems(First, setup_cpu_image)
 			.add_systems(Last, (save_captured_frames, send_encoded_frames).chain());
 
@@ -379,14 +379,14 @@ fn save_captured_frames(receiver: Res<MainWorldReceiver>, raw_sender: Res<RawFra
 	}
 }
 
-/// Drain encoded frames from the background encoder and forward to the viewport socket task.
+/// Drain processed frames from the background thread and forward to the viewport socket task.
 /// Chained after save_captured_frames in the Last schedule.
-fn send_encoded_frames(enc_receiver: Res<EncodedFrameReceiver>, viewport_sender: Res<ViewportSender>) {
+fn send_encoded_frames(processed_receiver: Res<ProcessedFrameReceiver>, viewport_sender: Res<ViewportSender>) {
 	let mut latest: Option<Vec<u8>> = None;
-	while let Ok(encoded) = enc_receiver.0.try_recv() {
-		latest = Some(encoded);
+	while let Ok(frame) = processed_receiver.0.try_recv() {
+		latest = Some(frame);
 	}
-	if let Some(encoded) = latest {
-		let _ = viewport_sender.0.try_send(encoded);
+	if let Some(frame) = latest {
+		let _ = viewport_sender.0.try_send(frame);
 	}
 }
