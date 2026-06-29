@@ -2,6 +2,7 @@ use bevy::{ecs::resource::IsResource, prelude::*};
 use bridge::protocol::bep::{BepProtocol, ComponentData, EntityInfo, EntityKind, FieldData, FieldValue};
 
 use crate::app::ResMultiplexer;
+use crate::gizmo::GizmoTarget;
 
 #[derive(Resource)]
 pub struct BepResource {
@@ -158,6 +159,11 @@ fn poll_bep_messages(world: &mut World) {
 	while let Ok(Some(msg)) = protocol.connection.try_recv() {
 		match msg {
 			BepMessage::SelectEntity { entity: id } => {
+				if id.is_none() {
+					if let Some(mut gizmo) = world.get_resource_mut::<GizmoTarget>() {
+						gizmo.entity = None;
+					}
+				}
 				if let Some(mut state) = world.get_resource_mut::<InspectorState>() {
 					if state.selected != id {
 						state.selected = id;
@@ -176,6 +182,9 @@ fn poll_bep_messages(world: &mut World) {
 					if let Some(mut req) = world.get_resource_mut::<CameraFocusRequest>() {
 						req.position = Some(pos);
 					}
+				}
+				if let Some(mut gizmo) = world.get_resource_mut::<GizmoTarget>() {
+					gizmo.entity = Some(id);
 				}
 			}
 			_ => {}

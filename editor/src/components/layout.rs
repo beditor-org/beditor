@@ -55,7 +55,7 @@ pub fn EditorLayout() -> Element {
 			LayoutArea { panels: top_panels }
 			div{
 				class: "flex flex-row flex-1 gap-1 overflow-hidden",
-				LayoutArea { panels: left_panels }
+				LayoutArea { panels: left_panels, class: "w-64 shrink-0" }
 				div {
 					class: "flex flex-col flex-1 gap-1 overflow-hidden",
 					LayoutArea { panels: center_top_panels }
@@ -64,7 +64,7 @@ pub fn EditorLayout() -> Element {
 					}
 					LayoutArea { panels: center_bottom_panels }
 				}
-				LayoutArea { panels: right_panels }
+				LayoutArea { panels: right_panels, class: "w-64 shrink-0" }
 			}
 			LayoutArea { panels: bottom_panels }
 		}

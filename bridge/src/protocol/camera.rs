@@ -2,20 +2,32 @@ use serde::{Deserialize, Serialize};
 
 use crate::{codec::json::JsonCodec, connection::Connection, protocol::Protocol, TypeName};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct MouseEvent {
 	pub x: f32,
 	pub y: f32,
-	/// Scroll wheel delta — used for camera dolly (move along forward vector).
-	/// Positive = scroll down (zoom out), negative = scroll up (zoom in).
+	/// Scroll wheel delta — dolly along camera forward.
 	#[serde(default)]
 	pub scroll: f32,
-	/// Pan delta — move camera along its right/up axes without changing rotation.
-	/// Sent when Shift + MMB drag.
+	/// Pan delta (Shift + MMB).
 	#[serde(default)]
 	pub pan_x: f32,
 	#[serde(default)]
 	pub pan_y: f32,
+	/// Absolute mouse position in game-image space [0, 1].
+	/// Computed by the editor accounting for letterboxing.
+	#[serde(default)]
+	pub abs_x: f32,
+	#[serde(default)]
+	pub abs_y: f32,
+	/// Left mouse button edge events.
+	#[serde(default)]
+	pub lmb_pressed: bool,
+	#[serde(default)]
+	pub lmb_released: bool,
+	/// True when LMB is held and mouse moves (used for gizmo drag).
+	#[serde(default)]
+	pub lmb_held: bool,
 }
 
 pub struct CameraInputProtocol {

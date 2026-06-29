@@ -54,7 +54,6 @@ pub fn EntityBrowser() -> Element {
 
 	rsx! {
 		div { class: "flex flex-col flex-1 min-h-0",
-			// Фільтр-таби
 			div { class: "flex border-b border-border shrink-0",
 				button {
 					class: if *filter.read() == Filter::Entities {
