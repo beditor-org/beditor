@@ -61,16 +61,16 @@ cargo run
 
 ## CSS
 
-Install tailwind cli:
+Requires [Tailwind CLI](https://tailwindcss.com/docs/installation/tailwind-cli). For Linux, you can use the standalone binary:
 
 ```bash
-curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 && chmod +x tailwindcss-linux-x64
+curl -#LO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 && chmod +x tailwindcss-linux-x64
 ```
 
-Run in watch mode:
+With standalone binay run in watch mode:
 
 ```bash
-./tailwindcss-linux-x64 -i assets/tailwind.css -o assets/tailwind-compiled.css --watch
+./tailwindcss-linux-x64 -i editor/tailwind.css -o editor/public/main.css --watch
 ```
 
 ## Documentation
