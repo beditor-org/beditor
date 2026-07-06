@@ -21,17 +21,24 @@ use bridge::{
 use clap::Parser;
 use tokio::io::{stdin, stdout, Stdin, Stdout};
 
-use crate::{frame_capture::FrameCapturePlugin, BepPlugin};
+use crate::{
+	bep::CameraFocusRequest,
+	frame_capture::FrameCapturePlugin,
+	gizmo::{compute_axis_movement, compute_gizmo_scale, GizmoDrag, GizmoTarget, hit_test_gizmo},
+	BepPlugin, GizmoPlugin,
+};
 
 /// Marker component from camera to render game to editor viewport
 #[derive(Component)]
 pub struct EditorCamera;
 
-/// Stores the camera rotation as Euler angles (in radians)
+/// Orbit camera state: camera sits at `pivot + rotation(yaw,pitch) * Z * distance`
 #[derive(Component)]
 pub struct CameraRotation {
-	pub pitch: f32, // rotation around X axis (up/down)
-	pub yaw: f32,   // rotation around Y axis (left/right)
+	pub pitch: f32,    // rotation around X axis (up/down)
+	pub yaw: f32,      // rotation around Y axis (left/right)
+	pub pivot: Vec3,   // the point the camera orbits around
+	pub distance: f32, // distance from pivot to camera
 }
 
 #[derive(Parser, Debug)]
@@ -67,16 +74,24 @@ pub fn setup_infinite_grid(mut commands: Commands) {
 
 pub fn setup_editor_camera(
 	mut commands: Commands,
-	mut cameras: Query<(Entity, &mut Camera), With<EditorCamera>>,
+	mut cameras: Query<(Entity, &mut Camera, &Transform), With<EditorCamera>>,
 	mut images: ResMut<Assets<Image>>,
 ) {
-	let Ok((entity, mut camera)) = cameras.single_mut() else {
+	let Ok((entity, _camera, transform)) = cameras.single_mut() else {
 		eprintln!("⚠️  Warning: No EditorCamera found or multiple cameras marked with EditorCamera");
 		return;
 	};
 
-	// Initialize camera rotation component
-	commands.entity(entity).insert(CameraRotation { pitch: 0.0, yaw: 0.0 });
+	// Derive initial orbit state from the camera's existing transform.
+	// pivot = world origin; distance = length of camera's current translation.
+	let (yaw, pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
+	let distance = transform.translation.length().max(1.0);
+	commands.entity(entity).insert(CameraRotation {
+		pitch,
+		yaw,
+		pivot: Vec3::ZERO,
+		distance,
+	});
 
 	let size = bevy::render::render_resource::Extent3d {
 		width: 1280,
@@ -105,19 +120,115 @@ pub fn setup_editor_camera(
 
 pub fn controll_editor_camera(
 	controls_stream: Res<ControlsStream>,
-	mut cameras: Query<(Entity, &mut Transform, &mut CameraRotation), With<EditorCamera>>,
+	mut focus_request: ResMut<CameraFocusRequest>,
+	mut gizmo: ResMut<GizmoTarget>,
+	mut cameras: Query<(&Camera, &GlobalTransform, &mut Transform, &mut CameraRotation), With<EditorCamera>>,
+	scene_gts: Query<(Entity, &GlobalTransform), Without<EditorCamera>>,
+	mut scene_tfs: Query<(Entity, &mut Transform), Without<EditorCamera>>,
 ) {
-	let Ok((_entity, mut transform, mut rotation)) = cameras.single_mut() else {
-		eprintln!("⚠️  Warning: No EditorCamera found or multiple cameras marked with EditorCamera");
+	let Ok((camera, cam_gt, mut transform, mut rotation)) = cameras.single_mut() else {
 		return;
 	};
 
-	let sensitivity = 0.01;
+	// Snapshot camera data into plain values so we release the query borrows
+	// before touching the mutable scene queries.
+	let (camera, cam_gt) = (camera.clone(), *cam_gt);
+
+	// Recompute camera transform from current orbit state.
+	let apply = |transform: &mut Transform, r: &CameraRotation| {
+		let rot = Quat::from_euler(EulerRot::YXZ, r.yaw, r.pitch, 0.0);
+		transform.translation = r.pivot + rot * Vec3::new(0.0, 0.0, r.distance);
+		transform.rotation = rot;
+	};
+
+	if let Some(pos) = focus_request.position.take() {
+		rotation.pivot = pos;
+		apply(&mut transform, &rotation);
+	}
+
+	let orbit_sensitivity = 0.005;
+	let dolly_speed = 0.1;
+	let pan_speed = 0.001;
+
 	while let Ok(Some(event)) = controls_stream.mouse.try_recv() {
-		rotation.yaw -= event.x * sensitivity;
-		rotation.pitch = (rotation.pitch - event.y * sensitivity)
-			.clamp(-std::f32::consts::FRAC_PI_2 + 0.01, std::f32::consts::FRAC_PI_2 - 0.01);
-		transform.rotation = Quat::from_euler(EulerRot::YXZ, rotation.yaw, rotation.pitch, 0.0);
+		// ── Gizmo: LMB press → hit-test axis handles ──
+		if event.lmb_pressed {
+			gizmo.drag = None;
+			if let Some(target_id) = gizmo.entity {
+				if let Some((_, entity_gt)) = scene_gts.iter().find(|(e, _)| e.index_u32() == target_id) {
+					let pos = entity_gt.translation();
+					let scale = compute_gizmo_scale(cam_gt.translation(), pos);
+					let mouse = Vec2::new(event.abs_x, event.abs_y);
+					eprintln!("[gizmo] lmb_pressed entity={target_id} pos={pos:?} scale={scale:.3} mouse={mouse:?}");
+					if let Some(axis) = hit_test_gizmo(&camera, &cam_gt, pos, scale, mouse) {
+						eprintln!("[gizmo] hit axis={axis:?}");
+						gizmo.drag = Some(GizmoDrag {
+							axis,
+							entity_start_pos: pos,
+							mouse_start: mouse,
+						});
+					} else {
+						eprintln!("[gizmo] no hit");
+					}
+				} else {
+					eprintln!("[gizmo] lmb_pressed but entity {target_id} not found in scene");
+				}
+			} else {
+				eprintln!("[gizmo] lmb_pressed but gizmo.entity is None");
+			}
+		}
+
+		// ── Gizmo: LMB release ──
+		if event.lmb_released {
+			gizmo.drag = None;
+		}
+
+		// ── Gizmo: LMB held → translate entity along grabbed axis ──
+		if event.lmb_held {
+			if let Some(drag) = gizmo.drag.clone() {
+				let current = Vec2::new(event.abs_x, event.abs_y);
+				let movement = compute_axis_movement(
+					&camera,
+					&cam_gt,
+					drag.axis,
+					drag.entity_start_pos,
+					drag.mouse_start,
+					current,
+				);
+				let new_pos = drag.entity_start_pos + drag.axis.to_vec3() * movement;
+				if let Some(target_id) = gizmo.entity {
+					for (e, mut tf) in scene_tfs.iter_mut() {
+						if e.index_u32() == target_id {
+							tf.translation = new_pos;
+							break;
+						}
+					}
+				}
+				continue; // consuming drag event; skip camera input
+			}
+			// lmb_held but no active drag — just skip
+			continue;
+		}
+
+		// ── Camera: scroll / pan / orbit ──
+		if event.scroll != 0.0 {
+			rotation.distance = (rotation.distance + event.scroll * dolly_speed * rotation.distance).max(0.1);
+			apply(&mut transform, &rotation);
+		}
+		if event.pan_x != 0.0 || event.pan_y != 0.0 {
+			let right = transform.right();
+			let up = transform.up();
+			let speed = pan_speed * rotation.distance;
+			rotation.pivot -= right * event.pan_x * speed;
+			rotation.pivot += up * event.pan_y * speed;
+			apply(&mut transform, &rotation);
+		}
+		if event.x != 0.0 || event.y != 0.0 {
+			rotation.yaw -= event.x * orbit_sensitivity;
+			rotation.pitch = (rotation.pitch - event.y * orbit_sensitivity)
+				.clamp(-std::f32::consts::FRAC_PI_2 + 0.01, std::f32::consts::FRAC_PI_2 - 0.01);
+			apply(&mut transform, &rotation);
+		}
 	}
 }
 
@@ -132,7 +243,7 @@ pub struct ControlsStream {
 }
 
 /// Sender end of the viewport frame channel.
-/// `send_encoded_frames` puts JPEG bytes here; a background thread writes
+/// `send_encoded_frames` puts raw RGBA bytes here; a background thread writes
 /// them to the shared-memory file and signals the editor via FrameStreamProtocol.
 #[derive(Resource)]
 pub struct ViewportSender(pub flume::Sender<Vec<u8>>);
@@ -157,7 +268,7 @@ impl EditorApp for App {
 			let frame_stream = multiplexer.register_protocol::<FrameStreamProtocol>();
 			let controls = multiplexer.register_protocol::<CameraInputProtocol>();
 
-			// JPEG frames go to a background thread that writes them to shared memory
+			// Raw RGBA frames go to a background thread that writes them to shared memory
 			// and sends a tiny notification through FrameStreamProtocol (stdio/multiplexer).
 			// The editor maps the same file and reads the frame on notification.
 			let (frame_tx, frame_rx) = flume::bounded::<Vec<u8>>(4);
@@ -172,14 +283,14 @@ impl EditorApp for App {
 						.expect("Failed to open viewport shm");
 					let mut mmap = unsafe { MmapMut::map_mut(&file).expect("Failed to mmap viewport shm") };
 
-					while let Ok(jpeg) = frame_rx.recv() {
-						let len = jpeg.len();
+					while let Ok(frame) = frame_rx.recv() {
+						let len = frame.len();
 						if 4 + len > mmap.len() {
 							continue; // frame too large for shm — should not happen with 4 MB
 						}
-						// Write [len: u32 BE][jpeg data] to shm
+						// Write [len: u32 BE][raw RGBA data] to shm
 						mmap[0..4].copy_from_slice(&(len as u32).to_be_bytes());
-						mmap[4..4 + len].copy_from_slice(&jpeg);
+						mmap[4..4 + len].copy_from_slice(&frame);
 						// Signal editor: frame is ready in shm
 						let _ = notify_conn.send(&vec![]);
 					}
@@ -199,7 +310,7 @@ impl EditorApp for App {
 					// Run 60 times per second.
 					Duration::from_secs_f64(1.0 / 60.0),
 				))
-				.add_plugins((FrameCapturePlugin, BepPlugin, InfiniteGridPlugin))
+				.add_plugins((FrameCapturePlugin, BepPlugin, GizmoPlugin, InfiniteGridPlugin))
 				.add_systems(PostStartup, setup_editor_camera)
 				.add_systems(Startup, setup_infinite_grid)
 				.add_systems(Update, controll_editor_camera);

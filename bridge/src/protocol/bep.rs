@@ -106,6 +106,8 @@ pub enum BepMessage {
 	/// Sent by the game with all components of the currently selected entity.
 	/// Re-sent whenever the selected entity's components change.
 	EntityComponentsUpdate { entity: u32, components: Vec<ComponentData> },
+	/// Sent by the editor to move the camera pivot to the entity's world position.
+	FocusEntity { entity: u32 },
 }
 
 #[derive(Clone)]
@@ -141,6 +143,10 @@ impl BepProtocol {
 
 	pub fn select_entity(&self, entity: Option<u32>) {
 		let _ = self.connection.send(&BepMessage::SelectEntity { entity });
+	}
+
+	pub fn focus_entity(&self, entity: u32) {
+		let _ = self.connection.send(&BepMessage::FocusEntity { entity });
 	}
 }
 

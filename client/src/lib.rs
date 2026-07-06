@@ -1,9 +1,11 @@
 mod app;
 mod bep;
+pub mod components;
 mod frame_capture;
-// mod scene_loader;
+mod gizmo;
 
 pub use app::{EditorApp, EditorCamera};
 pub use bep::BepPlugin;
+pub use components::SceneComponentsPlugin;
 pub use frame_capture::FrameCapturePlugin;
-// pub use scene_loader::{ColorMaterial, ProceduralMesh, SceneLoaderPlugin};
+pub use gizmo::GizmoPlugin;

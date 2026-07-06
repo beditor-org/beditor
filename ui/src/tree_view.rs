@@ -10,18 +10,18 @@ pub struct TreeItem {
 }
 
 #[component]
-pub fn TreeView(items: Vec<TreeItem>, on_select: Option<EventHandler<u32>>) -> Element {
+pub fn TreeView(items: Vec<TreeItem>, on_select: Option<EventHandler<u32>>, on_focus: Option<EventHandler<u32>>) -> Element {
 	rsx! {
 		div { class: "tree-view",
 			for item in items {
-				TreeNode { item: item.clone(), on_select: on_select.clone() }
+				TreeNode { item: item.clone(), on_select: on_select.clone(), on_focus: on_focus.clone() }
 			}
 		}
 	}
 }
 
 #[component]
-fn TreeNode(item: TreeItem, on_select: Option<EventHandler<u32>>) -> Element {
+fn TreeNode(item: TreeItem, on_select: Option<EventHandler<u32>>, on_focus: Option<EventHandler<u32>>) -> Element {
 	let has_children = !item.children.is_empty();
 	let mut is_open = use_signal(|| false);
 	let id = item.id;
@@ -36,6 +36,11 @@ fn TreeNode(item: TreeItem, on_select: Option<EventHandler<u32>>) -> Element {
 				CollapsibleTrigger {
 					div {
 						class: "tree-node-trigger flex items-center gap-1",
+						ondblclick: move |_| {
+							if let Some(h) = &on_focus {
+								h.call(id);
+							}
+						},
 						onclick: move |_| {
 							if let Some(h) = &on_select {
 								h.call(id);
@@ -54,7 +59,7 @@ fn TreeNode(item: TreeItem, on_select: Option<EventHandler<u32>>) -> Element {
 				CollapsibleContent {
 					div { class: "pl-4 ml-2 border-l border-border",
 						for child in item.children {
-							TreeNode { item: child.clone(), on_select: on_select.clone() }
+							TreeNode { item: child.clone(), on_select: on_select.clone(), on_focus: on_focus.clone() }
 						}
 					}
 				}
@@ -64,6 +69,11 @@ fn TreeNode(item: TreeItem, on_select: Option<EventHandler<u32>>) -> Element {
 		rsx! {
 			div {
 				class: "tree-node-leaf",
+				ondblclick: move |_| {
+					if let Some(h) = &on_focus {
+						h.call(id);
+					}
+				},
 				onclick: move |_| {
 					if let Some(h) = &on_select {
 						h.call(id);
