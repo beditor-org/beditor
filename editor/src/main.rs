@@ -8,6 +8,7 @@ use editor::{
 		core::plugin::core_plugin,
 		game_process::game_process_plugin,
 		scene_editor::plugin::scene_editor_plugin,
+		top_bar::plugin::top_bar_plugin,
 		transport::stdio::stdio_transport_plugin,
 		viewport::plugin::{viewport_plugin, ViewportShm},
 		PluginBuilder,
@@ -59,7 +60,9 @@ fn main() {
 								HttpResponse::builder()
 									.status(200)
 									.header(header::CONTENT_TYPE, "application/octet-stream")
-									.header(header::CACHE_CONTROL, "no-store")								.header("Access-Control-Allow-Origin", "*")									.body(std::borrow::Cow::Owned(data))
+									.header(header::CACHE_CONTROL, "no-store")
+									.header("Access-Control-Allow-Origin", "*")
+									.body(std::borrow::Cow::Owned(data))
 									.unwrap(),
 							);
 							return;
@@ -78,6 +81,7 @@ fn main() {
 
 	let plugins: Vec<PluginBuilder> = vec![
 		core_plugin,
+		top_bar_plugin,
 		stdio_transport_plugin,
 		game_process_plugin,
 		viewport_plugin,
