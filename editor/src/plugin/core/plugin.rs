@@ -6,10 +6,7 @@ use crate::{
 	event::Events,
 	plugin::{
 		asset_browser::ASSET_BROWSER_WORKSPACE,
-		core::{
-			top_bar::{main_menu::MenuBar, Logo, WindowControls, WorkspaceTabsTool},
-			welcome, StatusBar,
-		},
+		core::{welcome, StatusBar},
 		Plugin, PluginRegistry,
 	},
 	project::{CurrentProject, ProjectOpenedEvent},
@@ -52,25 +49,6 @@ pub fn core_plugin() -> Plugin {
 				],
 			}
 			.with_tools(vec![("Status bar", StatusBar, ToolAlignment::default())]),
-			PanelConfig {
-				socket: PanelSocket::Top,
-				name: CORE_TOP_BAR_PANEL.name().to_string(),
-				display_mode: PanelDisplayMode::Stacked,
-				is_visible: true,
-				is_active: false,
-				tools: vec![],
-				workspaces: vec![
-					CORE_WELCOME_WORKSPACE.clone(),
-					CORE_SCENE_EDITOR_WORKSPACE.clone(),
-					CORE_PLAYTEST_WORKSPACE.clone(),
-				],
-			}
-			.with_tools(vec![
-				("Logo", Logo, ToolAlignment::default()),
-				("Main menu", MenuBar, ToolAlignment::default()),
-				("Workspace tabs", WorkspaceTabsTool, ToolAlignment::default()),
-				("Window controls", WindowControls, ToolAlignment::End),
-			]),
 			PanelConfig {
 				socket: PanelSocket::Center,
 				name: CORE_WELCOME_PANEL.name().to_string(),

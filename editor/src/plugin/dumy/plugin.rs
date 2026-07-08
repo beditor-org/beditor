@@ -3,6 +3,7 @@ use strum::Display;
 use tracing::info;
 
 use crate::{
+	main_menu::{MenuBarGroupConfig, MenuBarItemConfig},
 	plugin::{core::plugin::CORE_STATUS_BAR_PANEL, dumy::dumy::Dumy, Plugin, PluginRegistry},
 	tool::ToolPlacement,
 	PanelConfig, PanelDisplayMode, PanelSocket, Tool, ToolAlignment,
@@ -22,6 +23,19 @@ pub fn dumy_plugin() -> Plugin {
 	Plugin {
 		name: PLUGIN_NAME.to_string(),
 		description: format!("{PLUGIN_NAME} plugin for testing purposes"),
+		menu_groups: vec![MenuBarGroupConfig {
+			label: "main_menu:dumy",
+			items: vec![
+				MenuBarItemConfig {
+					label: "main_menu:dumy:do_something",
+					..Default::default()
+				},
+				MenuBarItemConfig {
+					label: "main_menu:dumy:do_more",
+					..Default::default()
+				},
+			],
+		}],
 		panels: vec![PanelConfig {
 			socket: PanelSocket::Left,
 			name: DumyPluginPanel::LeftBar.to_string(),

@@ -1,4 +1,4 @@
-use dioxus::{core::Element, desktop::tao::window::Theme, prelude::*};
+use dioxus::prelude::*;
 
 use crate::{
 	components::{
@@ -6,6 +6,7 @@ use crate::{
 		ThemeToggle,
 	},
 	event::{EditorEvent, Events},
+	main_menu::MenuBarGroupConfig,
 	panel::PanelsManager,
 	plugin::{
 		top_bar::{logo::Logo, window_controls::WindowControls},
@@ -16,6 +17,8 @@ use crate::{
 
 #[component]
 pub fn MenuBar() -> Element {
+	let menu_bar_groups = use_context::<Memo<Vec<MenuBarGroupConfig>>>();
+
 	let plugins_registry = use_context::<Signal<PluginRegistry>>();
 	let mut panels_manager = use_context::<Signal<PanelsManager>>();
 	let events = use_context::<Events>();
@@ -24,40 +27,33 @@ pub fn MenuBar() -> Element {
 		div { class: "flex flex-row h-8",
 			ThemeToggle {}
 			Menubar {
-				MenubarMenu {
-					index: 0usize,
-					MenubarTrigger { "File" }
-					MenubarContent {
-						MenubarItem {
-							index: 0usize,
-							value: "new".to_string(),
-							on_select: move |value| {
-								tracing::info!("Selected value: {}", value);
-							},
-							"New"
+				{
+					menu_bar_groups.iter().enumerate().map(|(group_index, group)| {
+						rsx! {
+							MenubarMenu {
+								index: {group_index as usize},
+								MenubarTrigger { "{group.label}" }
+								MenubarContent {
+									{
+										group.items.iter().enumerate().map(|(item_index, item)| {
+											rsx! {
+												MenubarItem {
+													index: {item_index as usize},
+													value: "{item.label}".to_string(),
+													disabled: {item.disabled},
+													on_select: move |value| {
+														tracing::info!("Selected value: {}", value);
+													},
+													"{item.label}"
+												}
+											}
+										})
+									}
+								}
+							}
 						}
-						MenubarItem {
-							index: 1usize,
-							value: "open".to_string(),
-							disabled: true,
-							on_select: move |value| {
-								tracing::info!("Selected value: {}", value);
-							},
-							"Open"
-						}
-						MenubarItem {
-							index: 2usize,
-							value: "save".to_string(),
-							on_select: move |value| {
-								tracing::info!("Selected value: {}", value);
-							},
-							"Save"
-						}
-					}
+					})
 				}
-				MenubarMenu { index: 1usize, MenubarTrigger { "Plugins" }}
-				MenubarMenu { index: 2usize, MenubarTrigger { "Panels" }}
-				MenubarMenu { index: 3usize, MenubarTrigger { "Themes" }}
 			}
 
 		}
@@ -83,22 +79,6 @@ fn MenuDropdown(label: String, children: Element) -> Element {
 					{children}
 				}
 			}
-		}
-	}
-}
-
-#[component]
-pub fn TopBar() -> Element {
-	use crate::components::ThemeToggle;
-
-	rsx! {
-		div {
-			class: "flex flex-row items-center h-8 overflow-hidden",
-			Logo {}
-			MenuBar {}
-			div { class: "flex-1" }
-			ThemeToggle {}
-			WindowControls {}
 		}
 	}
 }

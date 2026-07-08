@@ -6,6 +6,7 @@ use editor::{
 		asset_browser::asset_browser_plugin,
 		bep::plugin::bep_plugin,
 		core::plugin::core_plugin,
+		dumy::plugin::dumy_plugin,
 		game_process::game_process_plugin,
 		scene_editor::plugin::scene_editor_plugin,
 		top_bar::plugin::top_bar_plugin,
@@ -88,6 +89,7 @@ fn main() {
 		asset_browser_plugin,
 		bep_plugin,
 		scene_editor_plugin,
+		dumy_plugin,
 	];
 	dioxus::LaunchBuilder::desktop()
 		.with_cfg(window_cfg)

@@ -12,7 +12,7 @@ use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-use crate::{workspace::Workspace, PanelConfig, Tool};
+use crate::{main_menu::MenuBarGroupConfig, workspace::Workspace, PanelConfig, Tool};
 
 pub type PluginComponent = fn() -> Element;
 
@@ -24,7 +24,7 @@ pub struct Plugin {
 	pub entry: Option<PluginComponent>,
 	pub setup_context: Option<PluginComponent>,
 	pub description: String,
-	// pub menu_groups: Vec<M
+	pub menu_groups: Vec<MenuBarGroupConfig>,
 	pub tools: Vec<Tool>,
 	pub workspaces: Vec<Workspace>,
 	pub panels: Vec<PanelConfig>,
