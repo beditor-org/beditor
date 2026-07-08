@@ -1,6 +1,7 @@
 mod app;
 mod layout;
 mod layout_area;
+pub mod menubar;
 mod panel;
 mod right_bar;
 mod theme_toggle;

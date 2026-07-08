@@ -2,6 +2,7 @@ pub mod components;
 mod config;
 mod context;
 pub mod event;
+pub mod main_menu;
 mod panel;
 pub mod plugin;
 mod project;
