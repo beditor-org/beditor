@@ -78,7 +78,7 @@ fn dumy_entry() -> Element {
 	});
 	use_effect(move || {
 		events.subscribe::<DumyMenuClick>(move |_| {
-			info!("Dummy scubscribed menu click event");
+			info!("Dummy subscribed menu click event");
 		});
 	});
 	rsx!()
