@@ -5,46 +5,46 @@ use crate::{
 		menubar::{Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarTrigger},
 		ThemeToggle,
 	},
-	event::{EditorEvent, Events},
+	event::Events,
 	main_menu::MenuBarGroupConfig,
-	panel::PanelsManager,
-	plugin::{
-		top_bar::{logo::Logo, window_controls::WindowControls},
-		PluginRegistry,
-	},
-	project::open_project_dialog,
 };
 
 #[component]
 pub fn MenuBar() -> Element {
 	let menu_bar_groups = use_context::<Memo<Vec<MenuBarGroupConfig>>>();
 
-	let plugins_registry = use_context::<Signal<PluginRegistry>>();
-	let mut panels_manager = use_context::<Signal<PanelsManager>>();
 	let events = use_context::<Events>();
-	let plugins = plugins_registry.read().plugins.clone();
+	let groups = menu_bar_groups.read().clone();
 	rsx! {
 		div { class: "flex flex-row h-8",
 			ThemeToggle {}
 			Menubar {
 				{
-					menu_bar_groups.iter().enumerate().map(|(group_index, group)| {
+					groups.into_iter().enumerate().map(|(group_index, group)| {
+						let group_label = group.label;
+						let items = group.items;
 						rsx! {
 							MenubarMenu {
 								index: {group_index as usize},
-								MenubarTrigger { "{group.label}" }
+								MenubarTrigger { "{group_label}" }
 								MenubarContent {
 									{
-										group.items.iter().enumerate().map(|(item_index, item)| {
+										items.into_iter().enumerate().map(|(item_index, item)| {
+											let action = item.action;
+											let item_label = item.label;
+											let disabled = item.disabled;
+											let events = events.clone();
 											rsx! {
 												MenubarItem {
 													index: {item_index as usize},
-													value: "{item.label}".to_string(),
-													disabled: {item.disabled},
-													on_select: move |value| {
-														tracing::info!("Selected value: {}", value);
+													value: item_label.to_string(),
+													disabled: disabled,
+													on_select: move |_| {
+														if let Some(action) = action {
+															action(&events);
+														}
 													},
-													"{item.label}"
+													"{item_label}"
 												}
 											}
 										})
