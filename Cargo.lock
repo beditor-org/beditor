@@ -3628,6 +3628,7 @@ dependencies = [
  "bytesize",
  "dioxus 0.7.1",
  "dioxus-free-icons",
+ "dioxus-primitives",
  "dirs",
  "lazy_static",
  "lucide-dioxus",
