@@ -1,11 +1,14 @@
+use std::collections::HashMap;
+
 use dioxus::prelude::*;
+use icu_locale_core::langid;
 use strum::Display;
 use tracing::info;
 
 use crate::{
 	event::Events,
 	main_menu::{MenuBarGroupConfig, MenuBarItemConfig},
-	plugin::{core::plugin::CORE_STATUS_BAR_PANEL, dumy::dumy::Dumy, Plugin, PluginRegistry},
+	plugin::{core::plugin::CORE_STATUS_BAR_PANEL, dumy::dumy::Dumy, i18n_core::plugin::Translation, Plugin, PluginRegistry},
 	tool::ToolPlacement,
 	PanelConfig, PanelDisplayMode, PanelSocket, Tool, ToolAlignment,
 };
@@ -44,6 +47,36 @@ pub fn dumy_plugin() -> Plugin {
 				},
 			],
 		}],
+		i18n: Some(HashMap::from([
+			(
+				langid!("en"),
+				HashMap::from([
+					("main_menu:dumy".to_string(), Translation::Single("Dumy".to_string())),
+					(
+						"main_menu:dumy:do_something".to_string(),
+						Translation::Single("Do something".to_string()),
+					),
+					(
+						"main_menu:dumy:do_more".to_string(),
+						Translation::Single("Do more".to_string()),
+					),
+				]),
+			),
+			(
+				langid!("ua"),
+				HashMap::from([
+					("main_menu:dumy".to_string(), Translation::Single("Bidon".to_string())),
+					(
+						"main_menu:dumy:do_something".to_string(),
+						Translation::Single("Зробити щось".to_string()),
+					),
+					(
+						"main_menu:dumy:do_more".to_string(),
+						Translation::Single("Зробити більше".to_string()),
+					),
+				]),
+			),
+		])),
 		panels: vec![PanelConfig {
 			socket: PanelSocket::Left,
 			name: DumyPluginPanel::LeftBar.to_string(),

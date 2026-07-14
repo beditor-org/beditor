@@ -8,6 +8,7 @@ use editor::{
 		core::plugin::core_plugin,
 		dumy::plugin::dumy_plugin,
 		game_process::game_process_plugin,
+		i18n_core::plugin::i18n_core_plugin,
 		scene_editor::plugin::scene_editor_plugin,
 		top_bar::plugin::top_bar_plugin,
 		transport::stdio::stdio_transport_plugin,
@@ -82,6 +83,7 @@ fn main() {
 
 	let plugins: Vec<PluginBuilder> = vec![
 		core_plugin,
+		i18n_core_plugin,
 		top_bar_plugin,
 		stdio_transport_plugin,
 		game_process_plugin,

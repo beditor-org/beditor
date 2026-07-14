@@ -45,3 +45,6 @@ base64 = "0.22"
 
 # Shared memory
 memmap2 = "0.9"
+
+#	i18n
+icu_locale_core = "2.2.0"
