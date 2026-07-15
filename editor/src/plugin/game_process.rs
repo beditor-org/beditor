@@ -81,36 +81,6 @@ fn entry() -> Element {
 		}
 	});
 
-	// use_effect(move || {
-	// 	let event_clone = events.clone();
-	// 	events.subscribe::<OpenGameEvent>(move |event| {
-	// 		let game_path = event.0.clone();
-	// 		let mut game_process = game_process.clone();
-	// 		let mut config = config.clone();
-	// 		let event_clone = event_clone.clone();
-
-	// 		// Spawn async task to avoid blocking UI thread
-	// 		spawn(async move {
-	// 			info!("Starting Bevy game process: ${game_path}");
-
-	// 			// Add to recent projects
-	// 			let project_name = std::path::Path::new(&game_path)
-	// 				.file_stem()
-	// 				.and_then(|s| s.to_str())
-	// 				.expect("Failed to get project name")
-	// 				.to_string();
-
-	// 			config.write().add_recent_project(RecentProject {
-	// 				name: project_name,
-	// 				path: game_path.clone(),
-	// 			});
-	// 			// Switch to editor workspace
-	// 			// event_clone.publish(SwitchWorkspaceEvent(CORE_SCENE_EDITOR_WORKSPACE.clone()));
-	// 			// event_clone.publish(GameProcessAttachedEvent {});
-	// 		});
-	// 	});
-	// });
-
 	use_hook(|| {
 		*manager.write() = Some(GameProcessManager::new(game_process, events.clone()));
 		let events_clone = events.clone();

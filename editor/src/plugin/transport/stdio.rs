@@ -1,11 +1,17 @@
 use bridge::multiplexer::Multiplexer;
 use bytesize::ByteSize;
 use dioxus::prelude::*;
-use std::sync::atomic::Ordering;
+use icu_locale_core::langid;
+use std::{collections::HashMap, sync::atomic::Ordering};
 
 use crate::{
 	event::Events,
-	plugin::{core::plugin::CORE_STATUS_BAR_PANEL, game_process::GameProcess, Plugin, PluginRegistry},
+	plugin::{
+		core::plugin::CORE_STATUS_BAR_PANEL,
+		game_process::GameProcess,
+		i18n_core::plugin::{I18n, Translation},
+		Plugin, PluginRegistry,
+	},
 	tool::ToolPlacement,
 	Tool, ToolAlignment,
 };
@@ -29,6 +35,22 @@ pub fn stdio_transport_plugin() -> Plugin {
 			alignment: ToolAlignment::End,
 			workspaces: vec![],
 		}],
+		i18n: Some(HashMap::from([
+			(
+				langid!("en"),
+				HashMap::from([(
+					"transport:std:not_connected".to_string(),
+					Translation::Single("Not connected".to_string()),
+				)]),
+			),
+			(
+				langid!("uk"),
+				HashMap::from([(
+					"transport:std:not_connected".to_string(),
+					Translation::Single("Не підключено".to_string()),
+				)]),
+			),
+		])),
 		..Default::default()
 	}
 }
@@ -97,13 +119,14 @@ fn entry() -> Element {
 
 fn counter() -> Element {
 	let stats = use_context::<Signal<Option<(u64, u64)>>>();
+	let i18n = use_context::<Signal<I18n>>();
 
 	rsx! {
 		div {
 			if let Some((sent, received)) = stats() {
 				"stdio: ↑ {ByteSize(sent)} | ↓ {ByteSize(received)}"
 			} else {
-				"stdio: Not connected"
+				"stdio: " {i18n.read().get("transport:std:not_connected")}
 			}
 		}
 	}

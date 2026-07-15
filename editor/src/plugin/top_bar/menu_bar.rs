@@ -12,6 +12,7 @@ use crate::{
 #[component]
 pub fn MenuBar() -> Element {
 	let menu_bar_groups = use_context::<Memo<Vec<MenuBarGroupConfig>>>();
+	let i18n = use_context::<Signal<crate::plugin::i18n_core::plugin::I18n>>();
 
 	let events = use_context::<Events>();
 	let groups = menu_bar_groups.read().clone();
@@ -21,7 +22,7 @@ pub fn MenuBar() -> Element {
 			Menubar {
 				{
 					groups.into_iter().enumerate().map(|(group_index, group)| {
-						let group_label = group.label;
+						let group_label = i18n.read().get(group.label);
 						let items = group.items;
 						rsx! {
 							MenubarMenu {
@@ -31,7 +32,8 @@ pub fn MenuBar() -> Element {
 									{
 										items.into_iter().enumerate().map(|(item_index, item)| {
 											let action = item.action;
-											let item_label = item.label;
+											let item_label = i18n.read().get(&item.label);
+											let item_value = item.value.clone();
 											let disabled = item.disabled;
 											let events = events.clone();
 											rsx! {
@@ -41,7 +43,7 @@ pub fn MenuBar() -> Element {
 													disabled: disabled,
 													on_select: move |_| {
 														if let Some(action) = action {
-															action(&events);
+															action(&events, &item_value);
 														}
 													},
 													"{item_label}"

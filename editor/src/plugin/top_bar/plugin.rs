@@ -1,9 +1,11 @@
 use dioxus::prelude::*;
+use isolang::Language;
 
 use crate::{
 	main_menu::{MenuBarGroupConfig, MenuBarItemConfig},
 	plugin::{
 		core::plugin::{CORE_PLAYTEST_WORKSPACE, CORE_SCENE_EDITOR_WORKSPACE, CORE_TOP_BAR_PANEL, CORE_WELCOME_WORKSPACE},
+		i18n_core::plugin::{ChangeLanguageEvent, I18n},
 		top_bar::{logo::Logo, menu_bar::MenuBar, window_controls::WindowControls, workspace_tabs::WorkspaceTabsTool},
 		Plugin, PluginRegistry,
 	},
@@ -20,7 +22,7 @@ pub fn top_bar_plugin() -> Plugin {
 		menu_groups: vec![MenuBarGroupConfig {
 			label: "main_menu:file",
 			items: vec![MenuBarItemConfig {
-				label: "main_menu:file:exit",
+				label: "main_menu:file:exit".to_string(),
 				..Default::default()
 			}],
 		}],
@@ -49,22 +51,48 @@ pub fn top_bar_plugin() -> Plugin {
 
 fn setup_context() -> Element {
 	let registry = use_context::<Signal<PluginRegistry>>();
+	let i18n = use_context::<Signal<I18n>>();
 
 	let menu_groups = use_memo(move || {
-		registry
+		let current_lang = i18n.read().language.clone();
+		let lang_items: Vec<MenuBarItemConfig> = i18n
+			.read()
+			.languages()
+			.into_iter()
+			.map(|lang| {
+				let display = Language::from_639_1(lang.language.as_str())
+					.and_then(|l| l.to_autonym())
+					.map(|s| s.to_string())
+					.unwrap_or_else(|| lang.to_string());
+				MenuBarItemConfig {
+					label: display,
+					value: lang.language.as_str().to_string(),
+					action: Some(|events, code| events.publish(ChangeLanguageEvent { code: code.to_string() })),
+					disabled: lang == current_lang,
+				}
+			})
+			.collect();
+
+		let mut groups: Vec<MenuBarGroupConfig> = registry
 			.read()
 			.plugins
 			.values()
 			.filter(|p| p.is_enabled)
 			.flat_map(|p| p.menu_groups.clone())
-			.fold(Vec::<MenuBarGroupConfig>::new(), |mut acc, group| {
+			.fold(Vec::new(), |mut acc, group| {
 				if let Some(existing) = acc.iter_mut().find(|g| g.label == group.label) {
-					existing.items.extend(group.items);
+					existing.items.extend(group.items.clone());
 				} else {
 					acc.push(group);
 				}
 				acc
-			})
+			});
+
+		if let Some(lang_group) = groups.iter_mut().find(|g| g.label == "menu_bar::i18n_core::languages") {
+			lang_group.items = lang_items;
+		}
+
+		groups
 	});
 
 	use_context_provider(|| menu_groups);

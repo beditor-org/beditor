@@ -3,6 +3,7 @@ pub mod bep;
 pub mod core;
 pub mod dumy;
 pub mod game_process;
+pub mod i18n_core;
 pub mod scene_editor;
 pub mod top_bar;
 pub mod transport;
@@ -11,8 +12,10 @@ pub mod viewport;
 use std::collections::HashMap;
 
 use dioxus::prelude::*;
+use icu_locale_core::LanguageIdentifier;
+use indexmap::IndexMap;
 
-use crate::{main_menu::MenuBarGroupConfig, workspace::Workspace, PanelConfig, Tool};
+use crate::{main_menu::MenuBarGroupConfig, plugin::i18n_core::plugin::Translation, workspace::Workspace, PanelConfig, Tool};
 
 pub type PluginComponent = fn() -> Element;
 
@@ -25,6 +28,7 @@ pub struct Plugin {
 	pub setup_context: Option<PluginComponent>,
 	pub description: String,
 	pub menu_groups: Vec<MenuBarGroupConfig>,
+	pub i18n: Option<HashMap<LanguageIdentifier, HashMap<String, Translation>>>,
 	pub tools: Vec<Tool>,
 	pub workspaces: Vec<Workspace>,
 	pub panels: Vec<PanelConfig>,
@@ -44,7 +48,7 @@ pub type PluginBuilder = fn() -> Plugin;
 
 #[derive(Clone)]
 pub struct PluginRegistry {
-	pub plugins: HashMap<String, Plugin>,
+	pub plugins: IndexMap<String, Plugin>,
 }
 
 impl Default for PluginRegistry {
@@ -55,7 +59,9 @@ impl Default for PluginRegistry {
 
 impl PluginRegistry {
 	pub fn new() -> Self {
-		Self { plugins: HashMap::new() }
+		Self {
+			plugins: IndexMap::new(),
+		}
 	}
 
 	pub fn register(&mut self, plugin: Plugin) {

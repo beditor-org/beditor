@@ -58,7 +58,7 @@ fn entry() -> Element {
 
 	use_effect(move || {
 		let id = selected_entity.read();
-		if let Some(protocol) = try_use_context::<BepProtocol>() {
+		if let Some(protocol) = try_use_context::<Signal<Option<BepProtocol>>>().and_then(|s| s.read().clone()) {
 			if let Some(entity) = *id {
 				protocol.select_entity(Some(entity));
 			} else {
