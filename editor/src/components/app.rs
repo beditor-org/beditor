@@ -3,7 +3,7 @@ use dioxus::{core::Element, prelude::*};
 use crate::{
 	components::EditorLayout,
 	event::{Events, SwitchWorkspaceEvent},
-	init_theme,
+	use_init_theme,
 	plugin::{Plugin, PluginRegistry},
 	workspace::WorkspaceRegistry,
 	EditorConfig,
@@ -32,7 +32,7 @@ pub fn App() -> Element {
 		});
 	});
 
-	init_theme();
+	use_init_theme();
 
 	let all_initialised = use_memo(move || {
 		registry

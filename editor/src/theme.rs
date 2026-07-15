@@ -19,6 +19,6 @@ pub fn use_theme() -> Signal<Theme> {
 	use_context::<Signal<Theme>>()
 }
 
-pub fn init_theme() -> Signal<Theme> {
+pub fn use_init_theme() -> Signal<Theme> {
 	use_context_provider(|| Signal::new(Theme::Dark))
 }

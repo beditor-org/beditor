@@ -39,17 +39,19 @@ fn entry() -> Element {
 
 	let mut entities: Signal<Vec<EntityInfo>> = use_context_provider(|| Signal::new(vec![]));
 	let mut entity_components: Signal<Vec<ComponentData>> = use_context::<Signal<Vec<ComponentData>>>();
+	let mut protocol: Signal<Option<BepProtocol>> = use_context_provider(|| Signal::new(None));
 
 	use_effect(move || {
 		if let Some(multiplexer) = multiplexer.read().as_ref() {
 			if game_process_attached() && !world_initialized() {
 				info!("Game process is attached, setting up World Protocol");
-				let protocol = use_context_provider(|| multiplexer.register_protocol::<BepProtocol>());
+				let p = multiplexer.register_protocol::<BepProtocol>();
+				protocol.set(Some(p.clone()));
 				info!("✓ World Protocol initialized");
 
 				spawn(async move {
 					loop {
-						match protocol.connection.recv_async().await {
+						match p.connection.recv_async().await {
 							Ok(message) => match message {
 								BepMessage::EntitiesListUpdate { entities: new_entities } => {
 									entities.set(new_entities);
