@@ -89,7 +89,7 @@ pub fn EntityBrowser() -> Element {
 							}
 						},
 						on_focus: move |id| {
-							if let Some(protocol) = try_use_context::<BepProtocol>() {
+							if let Some(protocol) = try_use_context::<Signal<Option<BepProtocol>>>().and_then(|s| s.read().clone()) {
 								protocol.focus_entity(id);
 							}
 						},

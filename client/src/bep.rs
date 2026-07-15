@@ -159,10 +159,8 @@ fn poll_bep_messages(world: &mut World) {
 	while let Ok(Some(msg)) = protocol.connection.try_recv() {
 		match msg {
 			BepMessage::SelectEntity { entity: id } => {
-				if id.is_none() {
-					if let Some(mut gizmo) = world.get_resource_mut::<GizmoTarget>() {
-						gizmo.entity = None;
-					}
+				if let Some(mut gizmo) = world.get_resource_mut::<GizmoTarget>() {
+					gizmo.entity = id;
 				}
 				if let Some(mut state) = world.get_resource_mut::<InspectorState>() {
 					if state.selected != id {
