@@ -119,13 +119,14 @@ fn entry() -> Element {
 
 fn counter() -> Element {
 	let stats = use_context::<Signal<Option<(u64, u64)>>>();
+	let i18n = use_context::<Signal<I18n>>();
 
 	rsx! {
 		div {
 			if let Some((sent, received)) = stats() {
 				"stdio: ↑ {ByteSize(sent)} | ↓ {ByteSize(received)}"
 			} else {
-				"stdio: " {use_context::<Signal<I18n>>().read().get("transport:std:not_connected")}
+				"stdio: " {i18n.read().get("transport:std:not_connected")}
 			}
 		}
 	}

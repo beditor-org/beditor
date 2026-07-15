@@ -3,8 +3,8 @@ use dioxus::{core::Element, prelude::*};
 use crate::{
 	components::EditorLayout,
 	event::{Events, SwitchWorkspaceEvent},
-	use_init_theme,
 	plugin::{Plugin, PluginRegistry},
+	use_init_theme,
 	workspace::WorkspaceRegistry,
 	EditorConfig,
 };
