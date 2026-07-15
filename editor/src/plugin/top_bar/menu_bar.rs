@@ -32,7 +32,8 @@ pub fn MenuBar() -> Element {
 									{
 										items.into_iter().enumerate().map(|(item_index, item)| {
 											let action = item.action;
-											let item_label = i18n.read().get(item.label);
+											let item_label = i18n.read().get(&item.label);
+											let item_value = item.value.clone();
 											let disabled = item.disabled;
 											let events = events.clone();
 											rsx! {
@@ -42,7 +43,7 @@ pub fn MenuBar() -> Element {
 													disabled: disabled,
 													on_select: move |_| {
 														if let Some(action) = action {
-															action(&events);
+															action(&events, &item_value);
 														}
 													},
 													"{item_label}"

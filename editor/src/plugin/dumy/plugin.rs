@@ -32,15 +32,15 @@ pub fn dumy_plugin() -> Plugin {
 			label: "main_menu:dumy",
 			items: vec![
 				MenuBarItemConfig {
-					label: "main_menu:dumy:do_something",
-					action: Some(|_| {
+					label: "main_menu:dumy:do_something".to_string(),
+					action: Some(|_, _| {
 						info!("Dumy plugin menu item clicked!");
 					}),
 					..Default::default()
 				},
 				MenuBarItemConfig {
-					label: "main_menu:dumy:do_more",
-					action: Some(|events| {
+					label: "main_menu:dumy:do_more".to_string(),
+					action: Some(|events, _| {
 						events.publish(DumyMenuClick);
 					}),
 					..Default::default()
@@ -63,7 +63,7 @@ pub fn dumy_plugin() -> Plugin {
 				]),
 			),
 			(
-				langid!("ua"),
+				langid!("uk"),
 				HashMap::from([
 					("main_menu:dumy".to_string(), Translation::Single("Bidon".to_string())),
 					(

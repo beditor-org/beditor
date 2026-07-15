@@ -13,6 +13,7 @@ use std::collections::HashMap;
 
 use dioxus::prelude::*;
 use icu_locale_core::LanguageIdentifier;
+use indexmap::IndexMap;
 
 use crate::{main_menu::MenuBarGroupConfig, plugin::i18n_core::plugin::Translation, workspace::Workspace, PanelConfig, Tool};
 
@@ -47,7 +48,7 @@ pub type PluginBuilder = fn() -> Plugin;
 
 #[derive(Clone)]
 pub struct PluginRegistry {
-	pub plugins: HashMap<String, Plugin>,
+	pub plugins: IndexMap<String, Plugin>,
 }
 
 impl Default for PluginRegistry {
@@ -58,7 +59,9 @@ impl Default for PluginRegistry {
 
 impl PluginRegistry {
 	pub fn new() -> Self {
-		Self { plugins: HashMap::new() }
+		Self {
+			plugins: IndexMap::new(),
+		}
 	}
 
 	pub fn register(&mut self, plugin: Plugin) {
