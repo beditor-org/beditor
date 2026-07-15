@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use icu_locale_core::langid;
 use icu_locale_core::LanguageIdentifier;
+use icu_plurals::{PluralCategory, PluralRules};
 use serde::Deserialize;
 
 use dioxus::prelude::*;
@@ -58,7 +59,18 @@ impl I18n {
 
 		match translation {
 			Translation::Single(s) => s.clone(),
-			Translation::Plural { one, few, many } => key.to_string(),
+			Translation::Plural { one, few, many } => {
+				let form = PluralRules::try_new_cardinal(self.language.clone().into())
+					.map(|rules| rules.category_for(n))
+					.unwrap_or(PluralCategory::Other);
+
+				let s = match form {
+					PluralCategory::One => one,
+					PluralCategory::Few => few,
+					_ => many,
+				};
+				s.replace("{n}", &n.to_string())
+			}
 		}
 	}
 }

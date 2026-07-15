@@ -52,5 +52,6 @@ rfd = { version = "0.16.0", default-features = false, features = [
 ui = { path = "../ui" }
 
 icu_locale_core.workspace = true
+icu_plurals.workspace = true
 indexmap.workspace = true
 isolang.workspace = true

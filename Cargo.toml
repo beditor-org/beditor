@@ -48,5 +48,6 @@ memmap2 = "0.9"
 
 #	i18n
 icu_locale_core = "2.2.0"
+icu_plurals = { version = "2", features = ["compiled_data"] }
 indexmap = "2"
 isolang = { version = "2", features = ["local_names"] }
