@@ -1,4 +1,7 @@
+use std::{collections::HashMap, hash::Hash};
+
 use dioxus::prelude::*;
+use icu_locale_core::langid;
 use lazy_static::lazy_static;
 
 use crate::{
@@ -7,6 +10,7 @@ use crate::{
 	plugin::{
 		asset_browser::ASSET_BROWSER_WORKSPACE,
 		core::{welcome, StatusBar},
+		i18n_core::plugin::Translation,
 		Plugin, PluginRegistry,
 	},
 	project::{CurrentProject, ProjectOpenedEvent},
@@ -74,6 +78,63 @@ pub fn core_plugin() -> Plugin {
 				panels: vec![],
 			},
 		],
+		i18n: Some(HashMap::from([
+			(
+				langid!("en"),
+				HashMap::from([
+					(
+						"core:welcome:welcome_to".to_string(),
+						Translation::Single("Welcome to".to_string()),
+					),
+					(
+						"core:welcome:what_new".to_string(),
+						Translation::Single("What's new".to_string()),
+					),
+					(
+						"core:welcome:recent_projects".to_string(),
+						Translation::Single("Recent projects".to_string()),
+					),
+					("core:welcome:start".to_string(), Translation::Single("Start".to_string())),
+					(
+						"core:welcome:new_project".to_string(),
+						Translation::Single("New project".to_string()),
+					),
+					(
+						"core:welcome:open_project".to_string(),
+						Translation::Single("Open project".to_string()),
+					),
+				]),
+			),
+			(
+				langid!("uk"),
+				HashMap::from([
+					(
+						"core:welcome:welcome_to".to_string(),
+						Translation::Single("Ласкаво просимо до".to_string()),
+					),
+					(
+						"core:welcome:what_new".to_string(),
+						Translation::Single("Що нового".to_string()),
+					),
+					(
+						"core:welcome:recent_projects".to_string(),
+						Translation::Single("Останні проєкти".to_string()),
+					),
+					(
+						"core:welcome:start".to_string(),
+						Translation::Single("Початок роботи".to_string()),
+					),
+					(
+						"core:welcome:new_project".to_string(),
+						Translation::Single("Новий проєкт".to_string()),
+					),
+					(
+						"core:welcome:open_project".to_string(),
+						Translation::Single("Відкрити проєкт".to_string()),
+					),
+				]),
+			),
+		])),
 		..Default::default()
 	}
 }
