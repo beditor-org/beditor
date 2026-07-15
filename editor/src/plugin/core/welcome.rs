@@ -55,6 +55,7 @@ pub fn welcome() -> Element {
 					li { "Stdio transport" }
 					li { "Transport multiplexing" }
 					li { "Streaming viewport" }
+					li { "I18n support" }
 				}
 			}
 		}
