@@ -7,7 +7,8 @@ pub mod config;
 // pub mod plugin;
 // mod project;
 // mod resource_id;
-// mod theme;
+pub mod theme;
+pub use theme::Theme;
 // mod tool;
 // pub mod workspace;
 

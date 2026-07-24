@@ -14,5 +14,6 @@ fn main() {
 			..Default::default()
 		},
 		app: App,
+		initial_theme: vitronix::Theme::Dark,
 	});
 }

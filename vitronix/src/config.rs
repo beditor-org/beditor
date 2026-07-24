@@ -1,5 +1,7 @@
 use dioxus::core::Element;
 
+use crate::theme::Theme;
+
 #[derive(Clone)]
 pub struct WindowConfig {
 	pub title: String,
@@ -27,4 +29,5 @@ impl Default for WindowConfig {
 pub struct Config {
 	pub window: WindowConfig,
 	pub app: fn() -> Element,
+	pub initial_theme: Theme,
 }

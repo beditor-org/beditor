@@ -13,9 +13,7 @@ pub fn run(config: Config) {
 		window = window.with_position(dioxus::desktop::LogicalPosition::new(x, y));
 	}
 
-	let window_cfg = dioxus::desktop::Config::new()
-		.with_window(window)
-		.with_background_color((0, 0, 0, 0));
+	let window_cfg = dioxus::desktop::Config::new().with_window(window);
 	dioxus::LaunchBuilder::desktop()
 		.with_cfg(window_cfg)
 		.with_context(config)

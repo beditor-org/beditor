@@ -13,6 +13,14 @@ impl Theme {
 			Theme::Light => "light",
 		}
 	}
+
+	/// Corresponds to --color-bg-primary from the theme CSS files.
+	pub fn background_rgb(&self) -> (u8, u8, u8) {
+		match self {
+			Theme::Dark => (30, 30, 30),     // #1e1e1e
+			Theme::Light => (255, 255, 255), // #ffffff
+		}
+	}
 }
 
 pub fn use_theme() -> Signal<Theme> {

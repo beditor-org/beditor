@@ -31,22 +31,23 @@ pub fn App() -> Element {
 			}
 		}
 
-		// Показуємо вікно лише після того як сторінка повністю завантажилась.
-		// JS сигналізує через dioxus.send() коли readyState === 'complete'.
-		spawn(async move {
-			let mut eval = dioxus::document::eval(
-				"(function() {
-					function ready() { dioxus.send('ready'); }
-					if (document.readyState === 'complete') {
-						ready();
-					} else {
-						window.addEventListener('load', ready, { once: true });
-					}
-				})()",
-			);
-			eval.recv::<String>().await.ok();
-			desktop_window().window.set_visible(true);
-		});
+		// On Linux, set the GTK window background via CSS provider so that
+		// the X11 Expose event paints the correct color instead of white.
+		#[cfg(target_os = "linux")]
+		{
+			use dioxus::desktop::tao::platform::unix::WindowExtUnix;
+			use gtk::prelude::*;
+
+			let (r, g, b) = config.initial_theme.background_rgb();
+			let css = gtk::CssProvider::new();
+			let _ = css.load_from_data(format!("window, widget {{ background: rgb({r},{g},{b}); }}").as_bytes());
+			let gtk_win = win.gtk_window();
+			gtk_win
+				.style_context()
+				.add_provider(&css, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+		}
+
+		desktop_window().window.set_visible(true);
 	});
 	// let plugins = use_context::<Vec<fn() -> Plugin>>();
 	// let config = use_context::<EditorConfig>();
