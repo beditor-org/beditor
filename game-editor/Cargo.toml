@@ -1,0 +1,10 @@
+[package]
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+name = "game-editor"
+version.workspace = true
+
+[dependencies]
+dioxus.workspace = true
+vitronix = { path = "../vitronix" }

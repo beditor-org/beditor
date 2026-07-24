@@ -1,6 +1,6 @@
 [workspace]
-default-members = ["editor"]
-members = ["bridge", "client", "editor", "ui"]
+default-members = ["game-editor"]
+members = ["bridge", "client", "file-manager", "game-editor", "ui", "vitronix"]
 resolver = "2"
 
 [workspace.package]
