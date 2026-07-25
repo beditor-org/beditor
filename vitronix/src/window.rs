@@ -1,4 +1,8 @@
-use dioxus::{desktop::window as desktop_window, prelude::*};
+use dioxus::{
+	desktop::{tao::window::Window, window as desktop_window},
+	prelude::*,
+};
+use std::sync::Arc;
 
 /// Maximizes the window when the component mounts.
 ///
@@ -21,4 +25,18 @@ pub fn use_drag_window() -> impl FnMut(Event<MouseData>) {
 	move |_| {
 		desktop_window().window.drag_window().ok();
 	}
+}
+
+// On Linux, set the GTK window background via CSS provider so that
+// the X11 Expose event paints the correct color instead of white.
+#[cfg(target_os = "linux")]
+pub fn set_gtk_background_color(r: u8, g: u8, b: u8, window: Arc<Window>) {
+	use dioxus::desktop::tao::platform::unix::WindowExtUnix;
+	use gtk::prelude::*;
+	let css = gtk::CssProvider::new();
+	let _ = css.load_from_data(format!("window, widget {{ background: rgb({r},{g},{b}); }}").as_bytes());
+	let gtk_win = window.gtk_window();
+	gtk_win
+		.style_context()
+		.add_provider(&css, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
 }

@@ -31,20 +31,11 @@ pub fn App() -> Element {
 			}
 		}
 
-		// On Linux, set the GTK window background via CSS provider so that
-		// the X11 Expose event paints the correct color instead of white.
 		#[cfg(target_os = "linux")]
 		{
-			use dioxus::desktop::tao::platform::unix::WindowExtUnix;
-			use gtk::prelude::*;
-
+			use crate::window::set_gtk_background_color;
 			let (r, g, b) = config.initial_theme.background_rgb();
-			let css = gtk::CssProvider::new();
-			let _ = css.load_from_data(format!("window, widget {{ background: rgb({r},{g},{b}); }}").as_bytes());
-			let gtk_win = win.gtk_window();
-			gtk_win
-				.style_context()
-				.add_provider(&css, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+			set_gtk_background_color(r, g, b, win.clone());
 		}
 
 		desktop_window().window.set_visible(true);
