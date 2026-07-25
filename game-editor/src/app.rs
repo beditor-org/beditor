@@ -1,9 +1,12 @@
 use dioxus::prelude::*;
-use vitronix::window::use_maximize;
+use vitronix::window::{use_drag_window, use_maximize};
 
 fn Loader() -> Element {
 	rsx! {
-		div { "loading..." }
+		div {
+			onmousedown: use_drag_window(),
+			"loading..."
+		}
 	}
 }
 
@@ -20,12 +23,13 @@ pub fn App() -> Element {
 
 	use_effect(move || {
 		spawn(async move {
-			tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+			tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 			loading.set(false);
 		});
 	});
 
 	rsx! {
+		style { {include_str!("../public/main.css")} }
 		if loading() {
 			Loader{}
 		} else {
