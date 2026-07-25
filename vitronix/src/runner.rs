@@ -5,6 +5,7 @@ pub fn run(config: Config) {
 		.with_title(config.window.title.to_string())
 		.with_decorations(config.window.decorations)
 		.with_resizable(config.window.resizable)
+		.with_maximized(config.window.maximized)
 		.with_visible(false);
 	if let Some((width, height)) = config.window.size {
 		window = window.with_inner_size(dioxus::desktop::LogicalSize::new(width, height));

@@ -8,3 +8,4 @@ version.workspace = true
 [dependencies]
 dioxus.workspace = true
 vitronix = { path = "../vitronix" }
+tokio = { workspace = true, features = ["time"] }
