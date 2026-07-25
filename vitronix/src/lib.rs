@@ -1,5 +1,6 @@
 pub mod components;
 pub mod config;
+pub mod window;
 // mod context;
 // pub mod event;
 // pub mod main_menu;
@@ -8,7 +9,6 @@ pub mod config;
 // mod project;
 // mod resource_id;
 pub mod theme;
-pub use theme::Theme;
 // mod tool;
 // pub mod workspace;
 
