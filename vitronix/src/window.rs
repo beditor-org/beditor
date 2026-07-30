@@ -14,6 +14,7 @@ pub fn use_drag_window() -> impl FnMut(Event<MouseData>) {
 
 /// Centers the window on the primary monitor given its logical size.
 pub fn align_center(window: &Arc<Window>, width: f64, height: f64) {
+	debug!("aligning window to center of primary monitor with size {}x{}", width, height);
 	use dioxus::desktop::tao::dpi::LogicalPosition;
 	if let Some(monitor) = window.current_monitor().or_else(|| window.primary_monitor()) {
 		let scale = window.scale_factor();

@@ -21,13 +21,10 @@ pub fn Layout() -> Element {
 				window.set_outer_position(dioxus::desktop::LogicalPosition::new(x, y));
 			}
 			if let Some((width, height)) = config.window.size {
-				align_center(&window.window, 200., 100.);
 				window.set_inner_size(dioxus::desktop::LogicalSize::new(width, height));
+				align_center(&window.window, 200., 100.);
 			}
 		}
-
-		//
-		// window.set_title(&config.window.title);
 	});
 
 	// let plugins = use_context::<Signal<PluginRegistry>>();

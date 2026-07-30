@@ -3,6 +3,7 @@ use vitronix::{components::app::CustomStartupFinished, window::use_drag_window};
 
 #[component]
 pub fn App() -> Element {
+	debug!("rendering App component");
 	let done = use_context::<CustomStartupFinished>();
 	let window = use_window();
 	use_effect(move || {
