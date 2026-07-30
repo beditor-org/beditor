@@ -1,35 +1,49 @@
-use dioxus::desktop::{window as desktop_window, LogicalPosition};
+use std::ops::Deref;
+
+use crate::components::layout::Layout;
+use dioxus::desktop::{use_window, window as desktop_window, LogicalPosition};
 use dioxus::{core::Element, prelude::*};
 
 use crate::config::Config;
+
+#[derive(Clone)]
+pub struct CustomStartupFinished(pub Signal<bool>);
+
+impl Deref for CustomStartupFinished {
+	type Target = Signal<bool>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
 
 #[component]
 pub fn App() -> Element {
 	info!("rendering App component");
 	let config: Config = use_context::<Config>();
-
+	let custom_startup_finished = use_context_provider(|| CustomStartupFinished(Signal::new(config.startup.is_none())));
 	use_effect(move || {
-		let ctx = desktop_window();
+		let ctx = use_window();
 		let win = &ctx.window;
 
-		let should_center = config.window.size.is_some()
-			&& config.window.position.is_none()
-			&& !config.window.resizable
-			&& !config.window.fullscreen;
+		// 	let should_center = config.window.size.is_some()
+		// 		&& config.window.position.is_none()
+		// 		&& !config.window.resizable
+		// 		&& !config.window.fullscreen;
 
-		if should_center {
-			let (win_w, win_h) = config.window.size.unwrap();
-			if let Some(monitor) = win.primary_monitor() {
-				let scale = win.scale_factor();
-				let m = monitor.size().to_logical::<f64>(scale);
-				let m_pos = monitor.position().to_logical::<f64>(scale);
+		// 	if should_center {
+		// 		let (win_w, win_h) = config.window.size.unwrap();
+		// 		if let Some(monitor) = win.primary_monitor() {
+		// 			let scale = win.scale_factor();
+		// 			let m = monitor.size().to_logical::<f64>(scale);
+		// 			let m_pos = monitor.position().to_logical::<f64>(scale);
 
-				let x = m_pos.x + (m.width - win_w as f64) / 2.0;
-				let y = m_pos.y + (m.height - win_h as f64) / 2.0;
+		// 			let x = m_pos.x + (m.width - win_w as f64) / 2.0;
+		// 			let y = m_pos.y + (m.height - win_h as f64) / 2.0;
 
-				win.set_outer_position(LogicalPosition::new(x, y));
-			}
-		}
+		// 			win.set_outer_position(LogicalPosition::new(x, y));
+		// 		}
+		// 	}
 
 		#[cfg(target_os = "linux")]
 		{
@@ -38,7 +52,7 @@ pub fn App() -> Element {
 			set_gtk_background_color(r, g, b, win.clone());
 		}
 
-		desktop_window().window.set_visible(true);
+		win.set_visible(true);
 	});
 	// let plugins = use_context::<Vec<fn() -> Plugin>>();
 	// let config = use_context::<EditorConfig>();
@@ -89,6 +103,14 @@ pub fn App() -> Element {
 		// }
 
 		style { {include_str!("../../public/main.css")} }
-		{(config.app)()}
+		if let Some(Startup) = config.startup {
+			if !*custom_startup_finished.read() {
+				Startup {}
+			} else {
+				Layout {}
+			}
+		} else {
+			Layout {}
+		}
 	}
 }

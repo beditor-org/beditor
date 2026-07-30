@@ -27,9 +27,9 @@ impl Default for WindowConfig {
 	}
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Config {
 	pub window: WindowConfig,
-	pub app: fn() -> Element,
+	pub startup: Option<fn() -> Element>, //	for custom startup flow
 	pub initial_theme: Theme,
 }

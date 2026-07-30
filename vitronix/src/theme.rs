@@ -1,7 +1,8 @@
 use dioxus::prelude::*;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub enum Theme {
+	#[default]
 	Dark,
 	Light,
 }

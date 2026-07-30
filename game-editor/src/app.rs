@@ -1,39 +1,32 @@
-use dioxus::prelude::*;
-use vitronix::window::{use_drag_window, use_maximize};
+use dioxus::{desktop::use_window, prelude::*};
+use vitronix::{components::app::CustomStartupFinished, window::use_drag_window};
 
-fn Loader() -> Element {
-	rsx! {
-		div {
-			onmousedown: use_drag_window(),
-			"loading..."
-		}
-	}
-}
-
-fn Layout() -> Element {
-	use_maximize();
-
-	rsx! {
-		div { "app" }
-	}
-}
-
+#[component]
 pub fn App() -> Element {
-	let mut loading = use_signal(|| true);
-
+	let done = use_context::<CustomStartupFinished>();
+	let window = use_window();
 	use_effect(move || {
-		spawn(async move {
-			tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-			loading.set(false);
-		});
+		// Tell the WM this is a splash window — tiling WMs (i3, etc.) auto-float splash windows.
+		// Must be set before set_visible so the hint is read on MapNotify.
+		#[cfg(target_os = "linux")]
+		vitronix::window::set_floatable(&window.window);
+		vitronix::window::align_center(&window.window, 200., 100.);
 	});
 
+	let mut done_done = done.clone();
 	rsx! {
 		style { {include_str!("../public/main.css")} }
-		if loading() {
-			Loader{}
-		} else {
-			Layout{}
+		div {
+			onmousedown: use_drag_window(),
+			class: "w-screen h-screen",
+			button {
+				onmousedown: |e| e.stop_propagation(),
+				class: "px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600",
+				onclick: move |_| {
+					done_done.0.set(true);
+				},
+				"Finish Startup"
+			 }
 		}
 	}
 }
