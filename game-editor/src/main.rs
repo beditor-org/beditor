@@ -9,9 +9,12 @@ fn main() {
 	vitronix::runner::run(vitronix::config::Config {
 		window: vitronix::config::WindowConfig {
 			title: config.title.to_string(),
-			resizable: false,
-			maximized: false,
-			size: Some((800.0, 600.0)),
+			window_type: vitronix::config::WindowType::Sized {
+				width: 800.0,
+				height: 600.0,
+				position: None,
+				resizable: false,
+			},
 			..Default::default()
 		},
 		startup: Some(App),

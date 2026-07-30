@@ -3,14 +3,20 @@ use dioxus::core::Element;
 use crate::theme::Theme;
 
 #[derive(Clone)]
+pub enum WindowType {
+	Maximized,
+	Sized {
+		width: f32,
+		height: f32,
+		position: Option<(f32, f32)>,
+		resizable: bool,
+	},
+}
+#[derive(Clone)]
 pub struct WindowConfig {
 	pub title: String,
 	pub decorations: bool,
-	pub resizable: bool,
-	pub maximized: bool,
-	pub fullscreen: bool,
-	pub size: Option<(f32, f32)>,
-	pub position: Option<(f32, f32)>,
+	pub window_type: WindowType,
 }
 
 impl Default for WindowConfig {
@@ -18,11 +24,7 @@ impl Default for WindowConfig {
 		Self {
 			title: "Vitronix App".to_string(),
 			decorations: false,
-			resizable: true,
-			maximized: true,
-			fullscreen: false,
-			size: None,
-			position: None,
+			window_type: WindowType::Maximized,
 		}
 	}
 }
